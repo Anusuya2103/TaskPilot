@@ -1,12 +1,9 @@
-import type { Config } from "next";
-
-const config: Config = {
+/** @type {import('next').NextConfig} */
+const config = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
-  experimental: {
-    // Keep the SSE endpoint a plain Node runtime: it is a long-lived response.
-    proxyTimeout: 1000 * 60 * 30,
-  },
+  // The SSE endpoint is a long-lived response; give the proxy room.
+  experimental: { proxyTimeout: 1000 * 60 * 30 },
 };
 
 export default config;

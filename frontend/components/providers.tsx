@@ -1,4 +1,6 @@
+"use client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
 import { useEffect, useState, type ReactNode } from "react";
 
 import { ToastHost, useToastStore } from "@/components/toast";
