@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from app.core.errors import PolicyViolation, ToolError
+from app.core.errors import ToolError
 from app.core.models import RiskLevel
 from app.core.schemas import ToolResult
 from app.core.security import check_url_allowed, sanitize_untrusted

@@ -31,25 +31,76 @@ from app.tools.base import Tool
 # ---------------------------------------------------------------------------
 # Payments / money movement. Firing here is high risk on its own.
 PAYMENT_TERMS = (
-    "buy", "purchase", "pay", "payment", "place order", "place the order",
-    "submit order", "confirm order", "checkout", "check out", "pay now",
-    "complete purchase", "complete order", "charge", "billing", "invoice",
-    "transfer", "wire", "donate", "subscribe", "add payment",
+    "buy",
+    "purchase",
+    "pay",
+    "payment",
+    "place order",
+    "place the order",
+    "submit order",
+    "confirm order",
+    "checkout",
+    "check out",
+    "pay now",
+    "complete purchase",
+    "complete order",
+    "charge",
+    "billing",
+    "invoice",
+    "transfer",
+    "wire",
+    "donate",
+    "subscribe",
+    "add payment",
 )
 
 # Irreversible content/state changes.
 DESTRUCTIVE_TERMS = (
-    "delete", "remove", "erase", "destroy", "drop", "purge", "unsubscribe",
-    "cancel subscription", "close account", "deactivate", "revoke", "reset password",
-    "overwrite", "truncate", "wipe", "terminate", "deregister", "withdraw",
+    "delete",
+    "remove",
+    "erase",
+    "destroy",
+    "drop",
+    "purge",
+    "unsubscribe",
+    "cancel subscription",
+    "close account",
+    "deactivate",
+    "revoke",
+    "reset password",
+    "overwrite",
+    "truncate",
+    "wipe",
+    "terminate",
+    "deregister",
+    "withdraw",
 )
 
 # Communications that leave the user's control.
 OUTBOUND_TERMS = (
-    "send", "email", "e-mail", "sms", "message", "notify", "post", "publish",
-    "tweet", "share", "comment", "reply", "invite", "submit", "apply",
-    "register", "sign up", "signup", "enrol", "enroll", "confirm",
-    "accept terms", "agree",
+    "send",
+    "email",
+    "e-mail",
+    "sms",
+    "message",
+    "notify",
+    "post",
+    "publish",
+    "tweet",
+    "share",
+    "comment",
+    "reply",
+    "invite",
+    "submit",
+    "apply",
+    "register",
+    "sign up",
+    "signup",
+    "enrol",
+    "enroll",
+    "confirm",
+    "accept terms",
+    "agree",
 )
 
 # Selectors that identify a control whose click is irreversible.
@@ -148,7 +199,9 @@ class PolicyEngine:
         if declared_raw is None:
             declared_raw = (raw or {}).get("risk", "low")
         declared = RiskLevel(declared_raw if declared_raw in {"low", "medium", "high"} else "low")
-        tool_name = tool.name if tool else str(getattr(step, "tool", "") or (raw or {}).get("tool", ""))
+        tool_name = (
+            tool.name if tool else str(getattr(step, "tool", "") or (raw or {}).get("tool", ""))
+        )
         tool_risk = tool.risk_level if tool else RiskLevel.LOW
 
         reasons: list[RiskReason] = []
@@ -166,9 +219,7 @@ class PolicyEngine:
         # doing. A read-only tool stays low-risk however scary its description is;
         # a non-submitting form fill tops out at medium. Structural rules later
         # still apply, because they describe effects rather than vocabulary.
-        ceiling = (
-            tool.keyword_risk_ceiling(args) if tool is not None else RiskLevel.HIGH
-        )
+        ceiling = tool.keyword_risk_ceiling(args) if tool is not None else RiskLevel.HIGH
         # NB: `max()` on a str-Enum compares alphabetically ("high" < "low"), so
         # the merge must always go through the rank-aware helper.
         ceiling = RiskLevel.max_of(ceiling, tool_risk)
@@ -194,8 +245,11 @@ class PolicyEngine:
                 ceiling,
                 "payment_terms",
                 f"payment/purchase language {_quote(money_hits)}"
-                + (f" (capped at {ceiling.value}: this tool cannot change state)"
-                   if ceiling is not RiskLevel.HIGH else ""),
+                + (
+                    f" (capped at {ceiling.value}: this tool cannot change state)"
+                    if ceiling is not RiskLevel.HIGH
+                    else ""
+                ),
             )
 
         # 3. destructive -----------------------------------------------------
@@ -273,7 +327,9 @@ class PolicyEngine:
             raise_to(RiskLevel.HIGH, "submit_flag", "step explicitly submits a form (submit=true)")
         method = str(args.get("method", "")).upper()
         if method in MUTATING_METHODS:
-            raise_to(RiskLevel.MEDIUM, "http_mutating_method", f"HTTP {method} changes server state")
+            raise_to(
+                RiskLevel.MEDIUM, "http_mutating_method", f"HTTP {method} changes server state"
+            )
         if method in DELETING_METHODS:
             raise_to(RiskLevel.HIGH, "http_delete", "HTTP DELETE is irreversible")
         url = str(args.get("url") or args.get("action") or "")
@@ -308,7 +364,9 @@ class PolicyEngine:
         llm_level: RiskLevel | None = None
         if llm_risk is not None:
             try:
-                llm_level = llm_risk if isinstance(llm_risk, RiskLevel) else RiskLevel(str(llm_risk))
+                llm_level = (
+                    llm_risk if isinstance(llm_risk, RiskLevel) else RiskLevel(str(llm_risk))
+                )
                 if llm_level.rank > RiskLevel.LOW.rank:
                     raise_to(
                         llm_level,
@@ -420,10 +478,10 @@ __all__ = [
     "DESTRUCTIVE_TERMS",
     "OUTBOUND_TERMS",
     "PAYMENT_TERMS",
+    "SUBMIT_SELECTOR",
     "PolicyDecision",
     "PolicyEngine",
     "RiskReason",
-    "SUBMIT_SELECTOR",
     "check_plan",
     "get_policy_engine",
     "reset_policy_engine",

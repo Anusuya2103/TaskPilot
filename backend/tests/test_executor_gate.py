@@ -98,13 +98,15 @@ async def test_explicit_rejection_blocks_the_tool(registry, danger, gated):
 
     async def reject() -> None:
         await asyncio.sleep(0.05)
-        broker.decide(run_id="r2", step_id="s1", status=ApprovalStatus.REJECTED,
-                      decided_by="tester")
+        broker.decide(
+            run_id="r2", step_id="s1", status=ApprovalStatus.REJECTED, decided_by="tester"
+        )
 
     executor = _executor(registry, broker)
     executor.settings.approval_timeout_seconds = 5
-    outcome = (await asyncio.gather(
-        executor.run_plan(run_id="r2", steps=gated, goal="pay"), reject()))[0]
+    outcome = (
+        await asyncio.gather(executor.run_plan(run_id="r2", steps=gated, goal="pay"), reject())
+    )[0]
 
     assert danger.calls == [], "GATE BREACH: tool ran after an explicit rejection"
     assert outcome.steps[0].status == StepStatus.SKIPPED.value
@@ -120,8 +122,9 @@ async def test_cancellation_blocks_the_tool(registry, danger, gated):
 
     executor = _executor(registry, broker)
     executor.settings.approval_timeout_seconds = 5
-    outcome = (await asyncio.gather(
-        executor.run_plan(run_id="r3", steps=gated, goal="pay"), cancel()))[0]
+    outcome = (
+        await asyncio.gather(executor.run_plan(run_id="r3", steps=gated, goal="pay"), cancel())
+    )[0]
 
     assert danger.calls == [], "GATE BREACH: tool ran after cancellation"
     assert outcome.steps[0].status == StepStatus.SKIPPED.value
@@ -132,13 +135,18 @@ async def test_approval_lets_the_tool_run_exactly_once(registry, danger, gated):
 
     async def approve() -> None:
         await asyncio.sleep(0.05)
-        broker.decide(run_id="r4", step_id="s1", status=ApprovalStatus.APPROVED,
-                      args={"target": "checkout", "amount": "100"})
+        broker.decide(
+            run_id="r4",
+            step_id="s1",
+            status=ApprovalStatus.APPROVED,
+            args={"target": "checkout", "amount": "100"},
+        )
 
     executor = _executor(registry, broker)
     executor.settings.approval_timeout_seconds = 5
-    outcome = (await asyncio.gather(
-        executor.run_plan(run_id="r4", steps=gated, goal="pay"), approve()))[0]
+    outcome = (
+        await asyncio.gather(executor.run_plan(run_id="r4", steps=gated, goal="pay"), approve())
+    )[0]
 
     assert len(danger.calls) == 1
     assert outcome.status.value == "completed"
@@ -152,13 +160,18 @@ async def test_edited_args_are_what_gets_executed(registry, danger, gated):
 
     async def approve_with_edit() -> None:
         await asyncio.sleep(0.05)
-        broker.decide(run_id="r5", step_id="s1", status=ApprovalStatus.EDITED,
-                      args={"target": "smaller-checkout", "amount": "10"})
+        broker.decide(
+            run_id="r5",
+            step_id="s1",
+            status=ApprovalStatus.EDITED,
+            args={"target": "smaller-checkout", "amount": "10"},
+        )
 
     executor = _executor(registry, broker)
     executor.settings.approval_timeout_seconds = 5
     await asyncio.gather(
-        executor.run_plan(run_id="r5", steps=gated, goal="pay"), approve_with_edit())
+        executor.run_plan(run_id="r5", steps=gated, goal="pay"), approve_with_edit()
+    )
 
     assert danger.calls == [{"target": "smaller-checkout", "amount": "10"}]
 
@@ -167,8 +180,8 @@ async def test_low_risk_step_runs_without_any_approval(registry, danger, setting
     """The gate must not be so eager that the agent stops doing anything."""
     broker = ApprovalBroker(poll_interval=0.05)
     outcome = await _executor(registry, broker, settings=settings).run_plan(
-        run_id="r6", steps=_safe_plan(danger, settings, "s1", "Open the cart", "cart"),
-        goal="look")
+        run_id="r6", steps=_safe_plan(danger, settings, "s1", "Open the cart", "cart"), goal="look"
+    )
     assert outcome.status.value == "completed"
     assert len(danger.calls) == 1, "a low-risk step should have run unattended"
     assert not broker.is_waiting("r6")
@@ -180,16 +193,22 @@ async def test_low_risk_step_runs_without_any_approval(registry, danger, setting
 def _safe_plan(danger, settings, step_id: str, goal: str, target: str) -> list[PlannedStep]:
     engine = PolicyEngine()
     step = PlanStep(id=step_id, goal=goal, tool="dangerous_action", args={"target": target})
-    return [PlannedStep(step=step, index=0,
-                        decision=engine.classify(step, danger, settings=settings), tool=danger)]
+    return [
+        PlannedStep(
+            step=step,
+            index=0,
+            decision=engine.classify(step, danger, settings=settings),
+            tool=danger,
+        )
+    ]
 
 
 async def test_step_is_retried_then_succeeds(registry, danger, settings):
     danger.fail_times = 1  # fail once, succeed on the retry
     executor = _executor(registry, ApprovalBroker(poll_interval=0.05), settings=settings)
     outcome = await executor.run_plan(
-        run_id="r7", steps=_safe_plan(danger, settings, "s1", "Open the cart", "cart"),
-        goal="try")
+        run_id="r7", steps=_safe_plan(danger, settings, "s1", "Open the cart", "cart"), goal="try"
+    )
 
     assert outcome.status.value == "completed"
     assert outcome.steps[0].attempts == 2
@@ -200,12 +219,9 @@ async def test_step_fails_after_exhausting_retries(registry, danger, settings):
     danger.fail_times = 99
     executor = _executor(registry, ApprovalBroker(poll_interval=0.05), settings=settings)
     outcome = await executor.run_plan(
-        run_id="r8", steps=_safe_plan(danger, settings, "s1", "Open the cart", "cart"),
-        goal="try")
+        run_id="r8", steps=_safe_plan(danger, settings, "s1", "Open the cart", "cart"), goal="try"
+    )
 
     assert outcome.status.value == "failed"
     assert outcome.steps[0].attempts == settings.max_step_attempts
     assert outcome.error_code == "step_failed"
-
-
-# __APPEND__

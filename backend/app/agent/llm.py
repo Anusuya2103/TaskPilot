@@ -30,7 +30,6 @@ from pydantic import BaseModel, ValidationError
 from app.core.config import Settings, get_settings
 from app.core.errors import LLMError, LLMOutputError
 from app.core.logging import get_logger, log_event, scrub
-from app.core.security import sanitize_untrusted
 
 logger = get_logger(__name__)
 
@@ -148,8 +147,8 @@ def _repair_json_text(text: str) -> str:
     repaired = text.strip()
     repaired = re.sub(r"^[^{[]*", "", repaired, count=1)
     repaired = re.sub(r"[^}\]]*$", "", repaired, count=1)
-    repaired = re.sub(r",(\s*[}\]])", r"\1", repaired)          # trailing commas
-    repaired = re.sub(r"//[^\n]*", "", repaired)                 # line comments
+    repaired = re.sub(r",(\s*[}\]])", r"\1", repaired)  # trailing commas
+    repaired = re.sub(r"//[^\n]*", "", repaired)  # line comments
     repaired = re.sub(r"/\*.*?\*/", "", repaired, flags=re.DOTALL)
     repaired = repaired.replace("True", "true").replace("False", "false").replace("None", "null")
     return repaired
@@ -232,9 +231,7 @@ class LLMClient(abc.ABC):
                 if attempt + 1 < attempts:
                     await asyncio.sleep(delay)
         self.stats["errors"] += 1
-        raise LLMError(
-            f"{self.provider} request failed after {attempts} attempts: {last_error}"
-        )
+        raise LLMError(f"{self.provider} request failed after {attempts} attempts: {last_error}")
 
     async def complete_structured(
         self,
@@ -515,10 +512,8 @@ def _safe_error(response: httpx.Response) -> str:
     return str(scrub(body))
 
 
-# __APPEND__
-
-
-def _scripted_client(settings: Settings) -> "ScriptedLLM":
+def _scripted_client(settings: Settings) -> LLMClient:
+    """Imported lazily: ``app.agent.scripted`` imports this module."""
     from app.agent.scripted import ScriptedLLM
 
     return ScriptedLLM(settings)
@@ -582,7 +577,11 @@ def get_llm(
     """Cached accessor — one HTTP-configured client per (provider, model)."""
     settings = settings or get_settings()
     resolved = (provider or settings.llm_provider or "anthropic").lower()
-    if resolved != "scripted" and not settings.provider_key(resolved) and settings.allow_scripted_fallback:
+    if (
+        resolved != "scripted"
+        and not settings.provider_key(resolved)
+        and settings.allow_scripted_fallback
+    ):
         resolved = "scripted"
     resolved_model = model or settings.llm_model
     cache_key = (resolved, resolved_model or "")
@@ -600,7 +599,11 @@ def provider_status(settings: Settings | None = None) -> list[dict[str, Any]]:
     """Per-provider configuration state for the Settings page."""
     settings = settings or get_settings()
     active = (settings.llm_provider or "").lower()
-    if active != "scripted" and not settings.provider_key(active) and settings.allow_scripted_fallback:
+    if (
+        active != "scripted"
+        and not settings.provider_key(active)
+        and settings.allow_scripted_fallback
+    ):
         active = "scripted"
     out: list[dict[str, Any]] = []
     for provider, default_model in DEFAULT_MODELS.items():

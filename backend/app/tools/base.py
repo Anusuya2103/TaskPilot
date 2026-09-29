@@ -69,7 +69,7 @@ class Tool(abc.ABC):
     risk_level: RiskLevel = RiskLevel.LOW
     category: str = "general"
     requires_approval_hint: bool = False
-    source: str = "builtin"          # builtin | mcp
+    source: str = "builtin"  # builtin | mcp
     server: str | None = None
     available: bool = True
     timeout_seconds: float | None = None
@@ -196,16 +196,14 @@ class Tool(abc.ABC):
         try:
             result = await self._invoke(args, ctx)
         except ToolTimeoutError as exc:
-            result = ToolResult(
-                ok=False, summary=str(exc), error=str(exc), reasons=["timeout"]
-            )
+            result = ToolResult(ok=False, summary=str(exc), error=str(exc), reasons=["timeout"])
         except RunCancelled:
             raise
         except ToolError as exc:
             result = ToolResult(
                 ok=False, summary=exc.message, error=exc.message, reasons=["tool_error"]
             )
-        except Exception as exc:  # noqa: BLE001 - never let a tool kill the run
+        except Exception as exc:
             logger.exception("tool %s raised", self.name)
             result = ToolResult(
                 ok=False,

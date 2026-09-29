@@ -115,7 +115,7 @@ class Settings(BaseSettings):
         return v
 
     @model_validator(mode="after")
-    def _pull_provider_keys(self) -> "Settings":
+    def _pull_provider_keys(self) -> Settings:
         """API keys are conventionally *unprefixed*; the SDKs read them too."""
         if not self.anthropic_api_key:
             self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")

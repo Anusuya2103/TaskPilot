@@ -127,7 +127,8 @@ async def test_rejecting_the_payment_stops_the_run_without_ordering(mockshop_url
     assert gated_step is not None
 
     await orchestrator.decide_approval(
-        run.id, gated_step,
+        run.id,
+        gated_step,
         ApprovalDecision(decision="reject", decided_by="e2e", note="too expensive"),
     )
     final = await _wait_for_terminal(orchestrator, run.id)
@@ -263,7 +264,6 @@ async def test_approval_by_step_uuid_also_releases_the_executor(mockshop_url):
 
     final = await _wait_for_terminal(orchestrator, run.id, timeout=30)
     assert final.status == RunStatus.COMPLETED.value, (
-        "an approval made with the step UUID did not release the executor: "
-        f"{final.error}"
+        "an approval made with the step UUID did not release the executor: " f"{final.error}"
     )
     assert _store().orders, "the order should exist after the approval"

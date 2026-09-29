@@ -19,7 +19,6 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import date
-
 from typing import Any
 
 from app.agent.llm import LLMClient
@@ -176,9 +175,7 @@ class Planner:
         return self.finalise(plan, started=started)
 
     # --- validation + policy --------------------------------------------------
-    def finalise(
-        self, plan: Plan, *, started: float, max_steps: int | None = None
-    ) -> PlanResult:
+    def finalise(self, plan: Plan, *, started: float, max_steps: int | None = None) -> PlanResult:
         """Validate tool references, cap the plan size, and classify every step."""
         warnings: list[str] = []
         limit = max_steps or self.settings.max_steps
@@ -207,9 +204,7 @@ class Planner:
                     )
                     step.tool = suggestions[0]
                 else:
-                    warnings.append(
-                        f"step {step.id}: dropped, unknown tool {step.tool!r}"
-                    )
+                    warnings.append(f"step {step.id}: dropped, unknown tool {step.tool!r}")
                     log_event(
                         logger,
                         logging.WARNING,
@@ -291,7 +286,7 @@ class Planner:
             if "tool" in edit and isinstance(edit["tool"], str) and registry.has(edit["tool"]):
                 step.tool = edit["tool"]
                 applied.append(f"swapped tool for {step.id} -> {edit['tool']}")
-        plan.steps = [s for s in plan.steps]
+        plan.steps = list(plan.steps)
         return applied
 
 

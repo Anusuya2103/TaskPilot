@@ -16,8 +16,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-BACKEND_ROOT = Path(__file__).resolve().parents[2]   # .../TaskPilot/backend
-REPO_ROOT = BACKEND_ROOT.parent                        # .../TaskPilot
+BACKEND_ROOT = Path(__file__).resolve().parents[2]  # .../TaskPilot/backend
+REPO_ROOT = BACKEND_ROOT.parent  # .../TaskPilot
 MOCKSHOP_PATH = REPO_ROOT / "demo-apps" / "mockshop" / "app.py"
 
 
@@ -91,4 +91,10 @@ def start_mockshop(port: int = 0, host: str = "127.0.0.1") -> RunningMockShop:
     )
 
 
-__all__ = ["MOCKSHOP_PATH", "REPO_ROOT", "RunningMockShop", "load_mockshop_module", "start_mockshop"]
+__all__ = [
+    "MOCKSHOP_PATH",
+    "REPO_ROOT",
+    "RunningMockShop",
+    "load_mockshop_module",
+    "start_mockshop",
+]

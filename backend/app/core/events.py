@@ -277,7 +277,7 @@ async def stream_run(
                 return
             try:
                 item = await asyncio.wait_for(queue.get(), timeout=heartbeat)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 yield None  # heartbeat
                 continue
             if item is None:

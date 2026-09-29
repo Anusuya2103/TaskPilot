@@ -27,22 +27,44 @@ logger = get_logger(__name__)
 
 # Markers that a page reported an error even though HTTP was 200.
 STRONG_ERROR_MARKERS = (
-    "internal server error", "traceback (most recent call last)", "404 not found",
-    "access denied", "permission denied", "unauthorized", "forbidden",
-    "something went wrong", "unexpected error",
+    "internal server error",
+    "traceback (most recent call last)",
+    "404 not found",
+    "access denied",
+    "permission denied",
+    "unauthorized",
+    "forbidden",
+    "something went wrong",
+    "unexpected error",
 )
 WEAK_ERROR_MARKERS = (
-    "validation error", "error:", "failed to", "invalid input", "not found",
+    "validation error",
+    "error:",
+    "failed to",
+    "invalid input",
+    "not found",
 )
 ERROR_FALSE_POSITIVES = (
-    "no errors", "0 errors", "error-free", "error handler", "with no error",
+    "no errors",
+    "0 errors",
+    "error-free",
+    "error handler",
+    "with no error",
 )
 
 NUMBER = re.compile(r"-?\d[\d,]*\.?\d*")
 MONEY = re.compile(r"\$\s?\d[\d,]*(?:\.\d{1,2})?")
 COUNT_WORDS = {
-    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
 }
 
 
@@ -127,7 +149,6 @@ class Verifier:
             return DeterministicVerdict(
                 decided=True,
                 success=True,
-                confidence=0.9,
                 reason="the step explicitly allows an empty result, and that is what we got",
             )
 
@@ -142,9 +163,7 @@ class Verifier:
             []
             if permits_empty
             else [
-                amount
-                for amount in MONEY.findall(expected)
-                if not self._money_close(amount, text)
+                amount for amount in MONEY.findall(expected) if not self._money_close(amount, text)
             ]
         )
         if missing:
@@ -168,9 +187,7 @@ class Verifier:
                     return DeterministicVerdict(
                         decided=True,
                         success=False,
-                        reason=(
-                            f"expected exactly {word} item(s) but the result shows {actual}"
-                        ),
+                        reason=(f"expected exactly {word} item(s) but the result shows {actual}"),
                         missing=[word],
                     )
                 # Lower bound ("at least one", "two or more"): only a shortfall fails.
@@ -178,9 +195,7 @@ class Verifier:
                     return DeterministicVerdict(
                         decided=True,
                         success=False,
-                        reason=(
-                            f"expected at least {word} item(s) but the result shows {actual}"
-                        ),
+                        reason=(f"expected at least {word} item(s) but the result shows {actual}"),
                         missing=[word],
                     )
 
@@ -211,11 +226,14 @@ class Verifier:
             ok=str(tool_ok).lower(),
             observation=observation_block,
         )
+        llm = self.llm
+        if llm is None:  # guarded by the caller, but narrow for the type checker
+            return VerificationVerdict(success=tool_ok, confidence=0.4, reason="no LLM configured")
         try:
-            return await self.llm.complete_structured(
+            return await llm.complete_structured(
                 VerificationVerdict, prompt, system=VERIFIER_SYSTEM, max_repairs=1
             )
-        except Exception as exc:  # noqa: BLE001 - verification must never crash a run
+        except Exception as exc:
             logger.warning("LLM verification failed, falling back to tool status: %s", exc)
             return VerificationVerdict(
                 success=tool_ok,
@@ -324,8 +342,13 @@ class Verifier:
         return any(
             verb in goal
             for verb in (
-                "add to cart", "in the cart", "cart contains", "cart lists",
-                "scrape", "collect", "gather",
+                "add to cart",
+                "in the cart",
+                "cart contains",
+                "cart lists",
+                "scrape",
+                "collect",
+                "gather",
             )
         )
 
@@ -351,8 +374,13 @@ class Verifier:
         return any(
             marker in lowered
             for marker in (
-                "cart is empty", "your cart is empty", "no products matched",
-                "0 line item", "no results", "no orders yet", "no lab reports yet",
+                "cart is empty",
+                "your cart is empty",
+                "no products matched",
+                "0 line item",
+                "no results",
+                "no orders yet",
+                "no lab reports yet",
             )
         )
 

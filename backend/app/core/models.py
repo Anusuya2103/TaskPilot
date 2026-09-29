@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -34,7 +34,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def new_id() -> str:
@@ -77,7 +77,7 @@ class StepStatus(str, enum.Enum):
     DONE = "done"
     FAILED = "failed"
     SKIPPED = "skipped"
-    BLOCKED = "blocked"          # waiting on a human
+    BLOCKED = "blocked"  # waiting on a human
     AWAITING_APPROVAL = "awaiting_approval"
 
     def is_terminal(self) -> bool:
@@ -110,7 +110,7 @@ class ApprovalStatus(str, enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
-    EDITED = "edited"            # approved with modified args
+    EDITED = "edited"  # approved with modified args
     TIMED_OUT = "timed_out"
     CANCELLED = "cancelled"
 
@@ -162,7 +162,7 @@ class Task(Base):
     source: Mapped[str] = mapped_column(String(32), default="ui")  # ui|api|cli|eval
     tags: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
-    runs: Mapped[list["Run"]] = relationship(
+    runs: Mapped[list[Run]] = relationship(
         back_populates="task", cascade="all, delete-orphan", lazy="selectin"
     )
 
@@ -175,9 +175,7 @@ class Run(Base):
     __tablename__ = "runs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    task_id: Mapped[str] = mapped_column(
-        ForeignKey("tasks.id", ondelete="CASCADE"), index=True
-    )
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String(32), default=RunStatus.PENDING.value, index=True)
     goal: Mapped[str] = mapped_column(Text, default="")
 
@@ -208,16 +206,16 @@ class Run(Base):
     llm_tokens_out: Mapped[int] = mapped_column(Integer, default=0)
 
     task: Mapped[Task] = relationship(back_populates="runs", lazy="selectin")
-    steps: Mapped[list["Step"]] = relationship(
+    steps: Mapped[list[Step]] = relationship(
         back_populates="run",
         cascade="all, delete-orphan",
         lazy="selectin",
         order_by="Step.index",
     )
-    approvals: Mapped[list["Approval"]] = relationship(
+    approvals: Mapped[list[Approval]] = relationship(
         back_populates="run", cascade="all, delete-orphan", lazy="selectin"
     )
-    screenshots: Mapped[list["Screenshot"]] = relationship(
+    screenshots: Mapped[list[Screenshot]] = relationship(
         back_populates="run", cascade="all, delete-orphan", lazy="selectin"
     )
 
@@ -273,7 +271,7 @@ class Step(Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     run: Mapped[Run] = relationship(back_populates="steps")
-    approvals: Mapped[list["Approval"]] = relationship(
+    approvals: Mapped[list[Approval]] = relationship(
         back_populates="step", cascade="all, delete-orphan", lazy="selectin"
     )
 

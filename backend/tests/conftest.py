@@ -45,12 +45,12 @@ from app.core.config import get_settings, reset_settings_cache  # noqa: E402
 from app.core.db import init_models  # noqa: E402
 from app.core.events import get_bus, reset_bus  # noqa: E402
 from app.tools import register_builtin_tools, reset_builtins, reset_registry  # noqa: E402
-from app.tools.registry import get_registry  # noqa: E402
 from app.tools.browser import reset_browser_manager  # noqa: E402
+from app.tools.registry import get_registry  # noqa: E402
 
 
 @pytest.fixture(scope="session")
-def event_loop_policy() -> Any:  # noqa: D103
+def event_loop_policy() -> Any:
     return asyncio.get_event_loop_policy()
 
 
@@ -76,12 +76,12 @@ def _clean_state() -> Iterator[None]:
 
 
 @pytest.fixture
-def settings() -> Any:  # noqa: D103
+def settings() -> Any:
     return get_settings()
 
 
 @pytest.fixture
-def registry():  # noqa: D103
+def registry():
     return get_registry()
 
 

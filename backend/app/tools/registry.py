@@ -8,6 +8,7 @@ oblivious to where a capability came from.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from app.core.errors import ToolNotFoundError
@@ -30,14 +31,14 @@ class ToolRegistry:
         self._tools[tool.name] = tool
         logger.debug("registered tool %s", tool.name)
 
-    def register_many(self, tools: list[Tool]) -> None:
+    def register_many(self, tools: Sequence[Tool]) -> None:
         for tool in tools:
             self.register(tool)
 
     def unregister(self, name: str) -> None:
         self._tools.pop(name, None)
 
-    def replace_source(self, source: str, tools: list[Tool]) -> None:
+    def replace_source(self, source: str, tools: Sequence[Tool]) -> None:
         """Swap out every tool from a given source (used when MCP reconnects)."""
         for name in [n for n, t in self._tools.items() if t.source == source]:
             self._tools.pop(name, None)

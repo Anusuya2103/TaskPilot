@@ -51,7 +51,7 @@ async def ready(response: Response, settings: Settings = Depends(settings_dep)) 
     mcp_status = mcp.status()
     mcp_ok = all(s["status"] == "connected" for s in mcp_status) if mcp_status else True
 
-    checks = {
+    checks: dict[str, Any] = {
         "database": {"ok": db_ok},
         "tools": {"ok": len(registry.all()) > 0, "count": len(registry.all())},
         "mcp": {

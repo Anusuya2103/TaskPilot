@@ -154,13 +154,32 @@ def match_canned_task(prompt: str) -> CannedTask | None:
     read_only = any(
         verb in text
         for verb in (
-            "search", "list", "show me", "browse", "read", "scrape", "inspect",
-            "how many", "tell me", "summar", "report on", "find out", "check the",
+            "search",
+            "list",
+            "show me",
+            "browse",
+            "read",
+            "scrape",
+            "inspect",
+            "how many",
+            "tell me",
+            "summar",
+            "report on",
+            "find out",
+            "check the",
         )
     )
     wants_buy = any(
         verb in text
-        for verb in ("buy", "purchase", "order", "pay", "checkout", "check out", "add to cart and buy")
+        for verb in (
+            "buy",
+            "purchase",
+            "order",
+            "pay",
+            "checkout",
+            "check out",
+            "add to cart and buy",
+        )
     )
 
     if read_only and not wants_buy:

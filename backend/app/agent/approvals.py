@@ -189,8 +189,9 @@ class ApprovalBroker:
             pending.outcome = ApprovalOutcome(status=ApprovalStatus.CANCELLED, note=reason)
             pending.event.set()
         if keys:
-            log_event(logger, logging.INFO, "cancelled pending approvals",
-                      run_id=run_id, count=len(keys))
+            log_event(
+                logger, logging.INFO, "cancelled pending approvals", run_id=run_id, count=len(keys)
+            )
         return len(keys)
 
     def is_waiting(self, run_id: str, step_id: str | None = None) -> bool:

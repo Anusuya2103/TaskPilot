@@ -20,8 +20,8 @@ def register_builtin_tools(*, force: bool = False) -> ToolRegistry:
         return registry
 
     from app.tools.browser import (
-        BrowserCloseTool,
         BrowserClickTool,
+        BrowserCloseTool,
         BrowserExtractTool,
         BrowserFillFormTool,
         BrowserOpenTool,

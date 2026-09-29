@@ -42,8 +42,12 @@ def step(**kwargs) -> PlanStep:
 # ---------------------------------------------------------------------------
 def test_llm_understating_risk_is_still_gated(engine, reg):
     """The planner says 'low'; the rules say 'high'. High wins."""
-    s = step(goal="Place the order and pay", tool="browser_click",
-             args={"selector": "#place-order"}, risk="low")
+    s = step(
+        goal="Place the order and pay",
+        tool="browser_click",
+        args={"selector": "#place-order"},
+        risk="low",
+    )
     decision = engine.classify(s, reg.get("browser_click"))
     assert decision.declared_risk is RiskLevel.LOW
     assert decision.effective_risk is RiskLevel.HIGH
@@ -52,8 +56,12 @@ def test_llm_understating_risk_is_still_gated(engine, reg):
 
 
 def test_planner_flagging_alone_gates_the_step(engine, reg):
-    s = step(goal="Forward this to a colleague", tool="browser_click",
-             args={"selector": "#send"}, needs_approval=True)
+    s = step(
+        goal="Forward this to a colleague",
+        tool="browser_click",
+        args={"selector": "#send"},
+        needs_approval=True,
+    )
     decision = engine.classify(s, reg.get("browser_click"))
     assert decision.effective_risk is RiskLevel.HIGH
     assert decision.needs_approval is True
@@ -61,8 +69,9 @@ def test_planner_flagging_alone_gates_the_step(engine, reg):
 
 def test_planner_can_only_raise_never_lower(engine, reg):
     """max(rules, declared) — a cautious planner is always believed."""
-    s = step(goal="Read the confirmation page", tool="browser_open",
-             args={"url": "/cart"}, risk="high")
+    s = step(
+        goal="Read the confirmation page", tool="browser_open", args={"url": "/cart"}, risk="high"
+    )
     decision = engine.classify(s, reg.get("browser_open"))
     assert decision.effective_risk is RiskLevel.HIGH
     assert decision.needs_approval is True
@@ -88,16 +97,22 @@ def test_read_only_tools_never_gate(engine, reg, goal, tool, args):
 
 
 def test_non_submitting_form_fill_caps_at_medium(engine, reg):
-    s = step(goal="Fill in the payment details", tool="browser_fill_form",
-             args={"fields": [{"selector": "#card_number", "value": "4242"}], "submit": False})
+    s = step(
+        goal="Fill in the payment details",
+        tool="browser_fill_form",
+        args={"fields": [{"selector": "#card_number", "value": "4242"}], "submit": False},
+    )
     decision = engine.classify(s, reg.get("browser_fill_form"))
     assert decision.effective_risk is RiskLevel.MEDIUM
     assert decision.needs_approval is False  # medium follows the strict-mode toggle
 
 
 def test_submitting_form_is_high_risk(engine, reg):
-    s = step(goal="Fill and submit the form", tool="browser_fill_form",
-             args={"fields": [], "submit": True})
+    s = step(
+        goal="Fill and submit the form",
+        tool="browser_fill_form",
+        args={"fields": [], "submit": True},
+    )
     decision = engine.classify(s, reg.get("browser_fill_form"))
     assert decision.effective_risk is RiskLevel.HIGH
     assert decision.needs_approval is True
@@ -108,24 +123,33 @@ def test_submitting_form_is_high_risk(engine, reg):
 # ---------------------------------------------------------------------------
 def test_http_post_requires_approval_in_strict_mode(engine, reg, settings):
     settings.auto_approve_low_risk = False
-    s = step(goal="Update the shipping address", tool="http_request",
-             args={"url": "https://api.example.com/profile", "method": "POST"})
+    s = step(
+        goal="Update the shipping address",
+        tool="http_request",
+        args={"url": "https://api.example.com/profile", "method": "POST"},
+    )
     decision = engine.classify(s, reg.get("http_request"), settings=settings)
     assert decision.effective_risk is RiskLevel.MEDIUM
     assert decision.needs_approval is True  # strict mode pauses on medium too
 
 
 def test_http_delete_is_always_high(engine, reg):
-    s = step(goal="Remove the record", tool="http_request",
-             args={"url": "https://api.example.com/items/1", "method": "DELETE"})
+    s = step(
+        goal="Remove the record",
+        tool="http_request",
+        args={"url": "https://api.example.com/items/1", "method": "DELETE"},
+    )
     decision = engine.classify(s, reg.get("http_request"))
     assert decision.effective_risk is RiskLevel.HIGH
     assert decision.needs_approval is True
 
 
 def test_http_post_to_checkout_is_high(engine, reg):
-    s = step(goal="Call the API", tool="http_request",
-             args={"url": "https://shop.example.com/checkout", "method": "POST"})
+    s = step(
+        goal="Call the API",
+        tool="http_request",
+        args={"url": "https://shop.example.com/checkout", "method": "POST"},
+    )
     decision = engine.classify(s, reg.get("http_request"))
     assert decision.effective_risk is RiskLevel.HIGH
 
@@ -133,8 +157,9 @@ def test_http_post_to_checkout_is_high(engine, reg):
 def test_file_overwrite_gates_only_when_the_file_exists(engine, reg):
     args = {"title": "T", "markdown": "x", "filename": "report.md"}
     tool = reg.get("write_report")
-    clean = engine.classify(step(goal="Write the report", tool="write_report", args=args),
-                            tool, existing_paths=set())
+    clean = engine.classify(
+        step(goal="Write the report", tool="write_report", args=args), tool, existing_paths=set()
+    )
     assert clean.effective_risk is RiskLevel.LOW
 
     overwriting = engine.classify(
@@ -147,8 +172,11 @@ def test_file_overwrite_gates_only_when_the_file_exists(engine, reg):
 
 
 def test_benign_read_verbs_do_not_gate(engine, reg):
-    s = step(goal="Read the order report and count the rows", tool="browser_extract",
-             args={"item_selector": "tr"})
+    s = step(
+        goal="Read the order report and count the rows",
+        tool="browser_extract",
+        args={"item_selector": "tr"},
+    )
     decision = engine.classify(s, reg.get("browser_extract"))
     assert decision.needs_approval is False
 
@@ -163,8 +191,9 @@ def test_llm_second_opinion_can_only_raise(engine, reg):
 
 
 def test_explanations_are_human_readable(engine, reg):
-    s = step(goal="Place the order and pay now", tool="browser_click",
-             args={"selector": "#place-order"})
+    s = step(
+        goal="Place the order and pay now", tool="browser_click", args={"selector": "#place-order"}
+    )
     text = engine.classify(s, reg.get("browser_click")).explanation()
     assert "payment" in text.lower()
     assert len(text) > 20

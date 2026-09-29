@@ -40,7 +40,7 @@ class MCPServerState:
     command: str | None = None
     args: list[str] = field(default_factory=list)
     url: str | None = None
-    status: str = "disconnected"   # disconnected|connecting|connected|error
+    status: str = "disconnected"  # disconnected|connecting|connected|error
     error: str | None = None
     tools: list[str] = field(default_factory=list)
     latency_ms: float | None = None
@@ -80,7 +80,7 @@ class MCPToolProxy(Tool):
         self.name = self._local_name(server, remote_name)
         self.description = description or f"MCP tool {remote_name} on {server}"
         self._schema = schema or {"type": "object", "properties": {}}
-        self._invoke = invoke
+        self._call_remote = invoke
         self.category = "mcp"
         # Remote tools are conservatively medium risk: we did not write them, so
         # we do not get to assume they are read-only.
@@ -96,7 +96,7 @@ class MCPToolProxy(Tool):
         return self._schema
 
     async def _run(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-        result = await self._invoke(args)
+        result = await self._call_remote(args)
         if result is None:
             return ToolResult(ok=False, summary=f"{self.name} returned nothing", error="empty")
 
@@ -150,7 +150,7 @@ class MCPManager:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
         self.servers: dict[str, MCPServerState] = {}
-        self._sessions: dict[str, Any] = {}          # name -> ClientSession
+        self._sessions: dict[str, Any] = {}  # name -> ClientSession
         self._stacks: dict[str, AsyncExitStack] = {}  # name -> exit stack
         self._tools: list[MCPToolProxy] = []
         self._lock = asyncio.Lock()
@@ -256,7 +256,7 @@ class MCPManager:
                 latency_ms=state.latency_ms,
             )
             return proxies
-        except Exception as exc:  # noqa: BLE001 - degrade, never crash startup
+        except Exception as exc:
             state.status = "error"
             state.error = f"{type(exc).__name__}: {exc}"[:400]
             try:

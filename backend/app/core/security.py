@@ -163,16 +163,12 @@ def sanitize_untrusted(
             line_flags = detect_injection(raw_line)
             if line_flags:
                 removed += 1
-                kept.append(
-                    f"[line removed by TaskPilot safety filter: {', '.join(line_flags)}]"
-                )
+                kept.append(f"[line removed by TaskPilot safety filter: {', '.join(line_flags)}]")
                 continue
             kept.append(raw_line)
         cleaned = "\n".join(kept)
 
-    return SanitizedText(
-        text=cleaned, flags=flags, removed_lines=removed, truncated=truncated
-    )
+    return SanitizedText(text=cleaned, flags=flags, removed_lines=removed, truncated=truncated)
 
 
 def wrap_untrusted(payload: str, label: str) -> str:
@@ -303,10 +299,10 @@ def safe_preview(value: Any, limit: int = 300) -> str:
 __all__ = [
     "INJECTION_PATTERNS",
     "MAX_OBSERVATION_CHARS",
-    "SanitizedText",
-    "TokenBucket",
     "UNTRUSTED_CLOSE",
     "UNTRUSTED_OPEN",
+    "SanitizedText",
+    "TokenBucket",
     "check_url_allowed",
     "detect_injection",
     "get_limiter",

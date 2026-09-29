@@ -61,7 +61,7 @@ async def run_events(
                 yield "".join(f"{k}: {v}\n" for k, v in frame.items()) + "\n"
         except asyncio.CancelledError:  # pragma: no cover - client disconnect
             raise
-        except Exception as exc:  # noqa: BLE001 - never kill the stream silently
+        except Exception as exc:
             logger.warning("SSE stream error for run %s: %s", run_id, exc)
             yield f"event: error\ndata: {exc!s}\n\n"
         yield "event: done\ndata: stream closed\n\n"

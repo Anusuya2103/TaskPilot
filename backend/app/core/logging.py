@@ -122,12 +122,12 @@ class HumanFormatter(logging.Formatter):
 class _SecretFilter(logging.Filter):
     """Last line of defence: scrub secrets that leak into messages/args."""
 
-    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+    def filter(self, record: logging.LogRecord) -> bool:
         try:
             if isinstance(record.msg, str):
                 record.msg = scrub(record.msg)
             if record.args:
-                record.args = tuple(scrub(a) for a in record.args)  # type: ignore[assignment]
+                record.args = tuple(scrub(a) for a in record.args)
         except Exception:  # pragma: no cover - never break logging
             pass
         return True

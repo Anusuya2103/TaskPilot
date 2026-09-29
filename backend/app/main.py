@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.auto_create_tables:
         try:
             await init_models()
-        except Exception as exc:  # noqa: BLE001 - let /ready report it
+        except Exception as exc:
             logger.exception("schema initialisation failed: %s", exc)
 
     await _recover_interrupted_runs()
@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             proxies = await get_mcp_manager().start()
             if proxies:
                 get_registry().replace_source("mcp", proxies)
-        except Exception as exc:  # noqa: BLE001 - MCP is optional, never fatal
+        except Exception as exc:
             logger.warning("MCP startup failed (continuing without it): %s", exc)
 
     log_event(
@@ -287,7 +287,7 @@ async def _recover_interrupted_runs() -> None:
                 )
         for run in runs:
             get_bus().close_channel(run.id)
-    except Exception as exc:  # noqa: BLE001 - recovery is best effort
+    except Exception as exc:
         logger.warning("run recovery failed: %s", exc)
 
 

@@ -10,8 +10,6 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import FileResponse
-from sqlalchemy import select
 
 from app.agent.llm import provider_status
 from app.api.deps import rate_limit, require_api_key, settings_dep
@@ -160,8 +158,7 @@ async def _apply_overrides() -> None:
 def _safe_servers(settings: Settings) -> list[dict[str, Any]]:
     try:
         return [
-            {k: v for k, v in cfg.items() if k != "env"}
-            for cfg in settings.mcp_server_configs()
+            {k: v for k, v in cfg.items() if k != "env"} for cfg in settings.mcp_server_configs()
         ]
     except ValueError:  # pragma: no cover - misconfigured JSON
         return []

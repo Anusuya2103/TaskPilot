@@ -16,12 +16,11 @@ from __future__ import annotations
 
 import asyncio
 import re
-from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
-from app.core.errors import PolicyViolation, ToolError
-from app.core.logging import get_logger, log_event
+from app.core.errors import ToolError
+from app.core.logging import get_logger
 from app.core.models import RiskLevel
 from app.core.schemas import ToolResult
 from app.core.security import check_url_allowed, sanitize_untrusted
@@ -34,16 +33,21 @@ MAX_ITEMS = 60
 
 
 class BrowserSession:
-    """Thin, crash-tolerant wrapper around a Playwright page."""
+    """Thin, crash-tolerant wrapper around a Playwright page.
+
+    The Playwright objects are typed as ``Any`` because the async API returns
+    dynamic proxies whose types do not survive a narrow annotation cleanly; they
+    are held in locals that are guarded by ``None`` checks instead.
+    """
 
     def __init__(self, run_id: str, headless: bool = True, timeout_ms: int = 20000) -> None:
         self.run_id = run_id
         self.headless = headless
         self.timeout_ms = timeout_ms
-        self._playwright = None
-        self._browser = None
-        self._context = None
-        self._page = None
+        self._playwright: Any = None
+        self._browser: Any = None
+        self._context: Any = None
+        self._page: Any = None
         self._lock = asyncio.Lock()
         self.console: list[str] = []
 
@@ -346,14 +350,18 @@ class BrowserOpenTool(_BrowserToolBase):
         wait_for = args.get("wait_for")
         if wait_for:
             try:
-                await page.wait_for_selector(str(wait_for), timeout=min(8000, ctx.settings.browser_timeout_ms))
+                await page.wait_for_selector(
+                    str(wait_for), timeout=min(8000, ctx.settings.browser_timeout_ms)
+                )
             except Exception:
                 logger.debug("wait_for %s timed out (continuing)", wait_for)
         await page.wait_for_timeout(120)
         shot = await _safe_screenshot(ctx, page, f"open {url}")
         summary = await _page_summary(page)
         summary["status"] = status
-        ctx.state["base_url"] = f"{url.split('://')[0]}://{url.split('://')[1].split('/')[0]}" if "://" in url else ""
+        ctx.state["base_url"] = (
+            f"{url.split('://')[0]}://{url.split('://')[1].split('/')[0]}" if "://" in url else ""
+        )
         ok = status is None or status < 400
         return ToolResult(
             ok=ok,
@@ -382,7 +390,11 @@ class BrowserClickTool(_BrowserToolBase):
             "properties": {
                 "selector": {"type": "string", "description": "CSS selector, e.g. '#add-to-cart'"},
                 "text": {"type": "string", "description": "Visible text fallback"},
-                "index": {"type": "integer", "description": "Which match to click (0-based)", "default": 0},
+                "index": {
+                    "type": "integer",
+                    "description": "Which match to click (0-based)",
+                    "default": 0,
+                },
             },
             "required": ["selector"],
             "additionalProperties": False,
@@ -544,7 +556,8 @@ class BrowserFillFormTool(_BrowserToolBase):
             "properties": {
                 "fields": {
                     "type": "array",
-                    "description": "List of {selector, value, type?} ; type is text|select|checkbox",
+                    "description": "List of {selector, value, type?}; "
+                    "type is text|select|checkbox",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -761,9 +774,7 @@ class BrowserScreenshotTool(_BrowserToolBase):
         session = await self.session(ctx)
         page = await session.ensure_started()
         label = str(args.get("label") or "manual")
-        shot = await _safe_screenshot(
-            ctx, page, label, full_page=bool(args.get("full_page", True))
-        )
+        shot = await _safe_screenshot(ctx, page, label, full_page=bool(args.get("full_page", True)))
         return ToolResult(
             ok=bool(shot),
             summary=f"Captured screenshot {label!r}" if shot else "Screenshot failed",

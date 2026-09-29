@@ -9,12 +9,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import orchestrator_dep, rate_limit, require_api_key
 from app.core.db import session_scope
-from app.core.models import Run, RunStatus, Task
+from app.core.models import Run, Task
 from app.core.schemas import RunOut, TaskCreate, TaskOut
 from app.schemas_api import to_run_out
 

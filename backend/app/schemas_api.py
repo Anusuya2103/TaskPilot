@@ -15,9 +15,9 @@ from sqlalchemy.orm import selectinload
 
 from app.core.db import session_scope
 from app.core.errors import NotFoundError
+from app.core.logging import scrub
 from app.core.models import Approval, ApprovalStatus, Run
 from app.core.schemas import ApprovalOut, RunOut, ScreenshotOut, StepOut
-from app.core.logging import scrub
 
 
 async def _load_run(session: AsyncSession, run_id: str) -> Run:

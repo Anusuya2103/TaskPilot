@@ -19,9 +19,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -31,13 +30,13 @@ from sqlalchemy.orm import selectinload
 from app.agent.approvals import get_broker
 from app.agent.executor import Executor, RunHooks, RunOutcome
 from app.agent.llm import get_llm
-from app.agent.planner import PlanResult, PlannedStep, Planner
+from app.agent.planner import PlannedStep, Planner, PlanResult
 from app.agent.verifier import Verifier
 from app.core.config import Settings, get_settings
 from app.core.db import get_sessionmaker, session_scope
 from app.core.errors import ConflictError, NotFoundError, RunCancelled, TaskPilotError
 from app.core.events import append_event, get_bus
-from app.core.logging import bind_run, get_logger, log_event
+from app.core.logging import bind_run, get_logger
 from app.core.models import (
     Approval,
     ApprovalStatus,
@@ -48,11 +47,9 @@ from app.core.models import (
     Step,
     StepStatus,
     Task,
-    new_id,
     utcnow,
 )
 from app.core.schemas import ApprovalDecision, Plan, TaskCreate
-from app.core.security import sanitize_untrusted
 from app.tools import register_builtin_tools
 from app.tools.browser import get_browser_manager
 from app.tools.registry import get_registry
@@ -214,7 +211,9 @@ class Orchestrator:
                 max_steps = params.get("max_steps")
 
             await self._emit(
-                run_id, EventType.RUN_STARTED, "Planning started",
+                run_id,
+                EventType.RUN_STARTED,
+                "Planning started",
                 {"provider": provider, "model": model},
             )
 
@@ -226,9 +225,13 @@ class Orchestrator:
             if review_plan:
                 await self._set_status(run_id, RunStatus.AWAITING_PLAN_APPROVAL)
                 await self._emit(
-                    run_id, EventType.PLAN_CREATED, "Plan ready for review",
-                    {"steps": len(plan_result.steps),
-                     "requires_approval": plan_result.requires_approval},
+                    run_id,
+                    EventType.PLAN_CREATED,
+                    "Plan ready for review",
+                    {
+                        "steps": len(plan_result.steps),
+                        "requires_approval": plan_result.requires_approval,
+                    },
                 )
                 return
 
@@ -240,7 +243,7 @@ class Orchestrator:
             await self._finish_cancelled(run_id, started, reason=str(exc))
         except TaskPilotError as exc:
             await self._finish_failed(run_id, started, exc)
-        except Exception as exc:  # noqa: BLE001 - a background task must never vanish
+        except Exception as exc:
             logger.exception("run %s crashed", run_id)
             await self._finish_failed(
                 run_id, started, TaskPilotError(f"internal error: {type(exc).__name__}: {exc}")
@@ -289,15 +292,23 @@ class Orchestrator:
         async def step_start(step: Any, _decision: Any = None) -> None:
             await self._set_step_status(run_id, step.id, StepStatus.RUNNING)
             await self._emit(
-                run_id, EventType.STEP_STARTED, step.goal,
-                {"step_id": step.id, "tool": step.tool, "args": step.args,
-                 "expected_outcome": step.expected_outcome},
+                run_id,
+                EventType.STEP_STARTED,
+                step.goal,
+                {
+                    "step_id": step.id,
+                    "tool": step.tool,
+                    "args": step.args,
+                    "expected_outcome": step.expected_outcome,
+                },
                 step_id=await db_step(step.id),
             )
 
         async def tool_call(step: Any, args: dict[str, Any], attempt: int, total: int) -> None:
             await self._emit(
-                run_id, EventType.TOOL_CALL, f"{step.tool} (attempt {attempt}/{total})",
+                run_id,
+                EventType.TOOL_CALL,
+                f"{step.tool} (attempt {attempt}/{total})",
                 {"step_id": step.id, "tool": step.tool, "args": args},
                 step_id=await db_step(step.id),
             )
@@ -308,7 +319,9 @@ class Orchestrator:
                 state["current_url"] = result.url
             await self._record_screenshots(run_id, step.id, result.screenshots, state)
             await self._emit(
-                run_id, EventType.OBSERVATION, result.summary,
+                run_id,
+                EventType.OBSERVATION,
+                result.summary,
                 {
                     "step_id": step.id,
                     "ok": result.ok,
@@ -321,38 +334,54 @@ class Orchestrator:
                 step_id=await db_step(step.id),
             )
             await self._emit(
-                run_id, EventType.VERIFICATION,
+                run_id,
+                EventType.VERIFICATION,
                 "verified" if verdict.success else "verification failed",
-                {"step_id": step.id, "success": verdict.success,
-                 "reason": verdict.reason, "confidence": verdict.confidence},
+                {
+                    "step_id": step.id,
+                    "success": verdict.success,
+                    "reason": verdict.reason,
+                    "confidence": verdict.confidence,
+                },
                 step_id=await db_step(step.id),
             )
 
         async def step_done(step: Any, outcome: Any) -> None:
             await self._finish_step(run_id, step.id, StepStatus.DONE, outcome)
             await self._emit(
-                run_id, EventType.STEP_COMPLETED, step.goal,
-                {"step_id": step.id, "attempts": outcome.attempts,
-                 "latency_ms": outcome.latency_ms,
-                 "summary": outcome.result.summary if outcome.result else None},
+                run_id,
+                EventType.STEP_COMPLETED,
+                step.goal,
+                {
+                    "step_id": step.id,
+                    "attempts": outcome.attempts,
+                    "latency_ms": outcome.latency_ms,
+                    "summary": outcome.result.summary if outcome.result else None,
+                },
                 step_id=await db_step(step.id),
             )
 
         async def step_failed(step: Any, outcome: Any) -> None:
             await self._finish_step(run_id, step.id, StepStatus.FAILED, outcome)
             await self._emit(
-                run_id, EventType.STEP_FAILED, outcome.error or "step failed",
+                run_id,
+                EventType.STEP_FAILED,
+                outcome.error or "step failed",
                 {"step_id": step.id, "attempts": outcome.attempts, "error": outcome.error},
                 step_id=await db_step(step.id),
             )
 
         async def step_skipped(step: Any, approval: Any) -> None:
             await self._finish_step(
-                run_id, step.id, StepStatus.SKIPPED, None,
+                run_id,
+                step.id,
+                StepStatus.SKIPPED,
+                None,
                 reason=f"approval {approval.status.value}",
             )
             await self._emit(
-                run_id, EventType.STEP_SKIPPED,
+                run_id,
+                EventType.STEP_SKIPPED,
                 f"skipped: approval {approval.status.value}",
                 {"step_id": step.id, "status": approval.status.value},
                 step_id=await db_step(step.id),
@@ -360,17 +389,24 @@ class Orchestrator:
 
         async def retry(step: Any, attempt: int, total: int, reason: str) -> None:
             await self._emit(
-                run_id, EventType.RETRY, f"retrying {step.id} after failure",
-                {"step_id": step.id, "attempt": attempt, "max_attempts": total,
-                 "reason": reason},
+                run_id,
+                EventType.RETRY,
+                f"retrying {step.id} after failure",
+                {"step_id": step.id, "attempt": attempt, "max_attempts": total, "reason": reason},
                 step_id=await db_step(step.id),
             )
 
         async def replan(failed: Any, reason: str, result: Any, number: int) -> None:
             await self._emit(
-                run_id, EventType.REPLAN, f"replanned after {failed.id} failed",
-                {"failed_step": failed.id, "reason": reason, "replan": number,
-                 "new_steps": [s.step.goal for s in result.steps]},
+                run_id,
+                EventType.REPLAN,
+                f"replanned after {failed.id} failed",
+                {
+                    "failed_step": failed.id,
+                    "reason": reason,
+                    "replan": number,
+                    "new_steps": [s.step.goal for s in result.steps],
+                },
             )
 
         async def approval_request(
@@ -383,14 +419,17 @@ class Orchestrator:
 
         async def policy(step: Any, decision: Any, escalated: bool) -> None:
             await self._emit(
-                run_id, EventType.POLICY_DECISION, decision.explanation()[:200],
+                run_id,
+                EventType.POLICY_DECISION,
+                decision.explanation()[:200],
                 {"step_id": step.id, **decision.to_dict(), "escalated_by_rules": escalated},
                 step_id=await db_step(step.id),
             )
 
         async def security(step: Any, reasons: list[str]) -> None:
             await self._emit(
-                run_id, EventType.SECURITY_NOTICE,
+                run_id,
+                EventType.SECURITY_NOTICE,
                 f"untrusted content filtered: {', '.join(reasons[:3])}",
                 {"step_id": step.id, "flags": reasons},
                 step_id=await db_step(step.id),
@@ -398,14 +437,20 @@ class Orchestrator:
 
         async def screenshot(step: Any, _event: Any, message: str, payload: dict[str, Any]) -> None:
             await self._emit(
-                run_id, EventType.SCREENSHOT, message,
-                {"step_id": step.id, **payload}, step_id=await db_step(step.id),
+                run_id,
+                EventType.SCREENSHOT,
+                message,
+                {"step_id": step.id, **payload},
+                step_id=await db_step(step.id),
             )
 
         async def log(step: Any, _event: Any, message: str, payload: dict[str, Any]) -> None:
             await self._emit(
-                run_id, EventType.LOG, message,
-                {"step_id": step.id, **payload}, step_id=await db_step(step.id),
+                run_id,
+                EventType.LOG,
+                message,
+                {"step_id": step.id, **payload},
+                step_id=await db_step(step.id),
             )
 
         hooks.on_step_start = step_start
@@ -440,9 +485,7 @@ class Orchestrator:
         async with session_scope() as session:
             step = await _find_step(session, run_id, plan_step_id)
             if step is None:
-                existing = await session.execute(
-                    select(Step.index).where(Step.run_id == run_id)
-                )
+                existing = await session.execute(select(Step.index).where(Step.run_id == run_id))
                 next_index = len(existing.scalars().all())
                 step = Step(
                     run_id=run_id,
@@ -525,9 +568,7 @@ class Orchestrator:
             if reason or (outcome is not None and outcome.error):
                 row.error = {"code": status.value, "message": reason or outcome.error}
 
-    async def _persist_plan(
-        self, run_id: str, result: PlanResult, goal: str
-    ) -> dict[str, Any]:
+    async def _persist_plan(self, run_id: str, result: PlanResult, goal: str) -> dict[str, Any]:
         """Write the plan + step rows, and emit ``plan_created`` with the policy view."""
         state: dict[str, Any] = {}
         async with session_scope() as session:
@@ -810,7 +851,9 @@ class Orchestrator:
             RunStatus.CANCELLED: EventType.RUN_CANCELLED,
         }.get(outcome.status, EventType.RUN_COMPLETED)
         await self._emit(
-            run_id, event, outcome.final_answer or outcome.error or "",
+            run_id,
+            event,
+            outcome.final_answer or outcome.error or "",
             {
                 "status": outcome.status.value,
                 "final_answer": outcome.final_answer,
@@ -854,16 +897,18 @@ class Orchestrator:
                 approval.decided_by = "system"
                 approval.decision_note = reason
         await self._emit(
-            run_id, EventType.RUN_CANCELLED, reason,
-            {"status": RunStatus.CANCELLED.value,
-             "duration_ms": round((time.perf_counter() - started) * 1000, 1)},
+            run_id,
+            EventType.RUN_CANCELLED,
+            reason,
+            {
+                "status": RunStatus.CANCELLED.value,
+                "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+            },
         )
         get_bus().close_channel(run_id)
         self.manager.forget(run_id)
 
-    async def _finish_failed(
-        self, run_id: str, started: float, exc: TaskPilotError
-    ) -> None:
+    async def _finish_failed(self, run_id: str, started: float, exc: TaskPilotError) -> None:
         payload = (
             exc.to_dict()
             if isinstance(exc, TaskPilotError)
@@ -877,16 +922,16 @@ class Orchestrator:
                 run.duration_ms = round((time.perf_counter() - started) * 1000, 1)
                 run.error = payload
         await self._emit(
-            run_id, EventType.RUN_FAILED, payload.get("message", "run failed"),
+            run_id,
+            EventType.RUN_FAILED,
+            payload.get("message", "run failed"),
             {**payload, "duration_ms": round((time.perf_counter() - started) * 1000, 1)},
         )
         get_bus().close_channel(run_id)
         self.manager.forget(run_id)
 
     # --- cancellation ---------------------------------------------------------
-    async def cancel_run(
-        self, run_id: str, *, reason: str = "cancelled by the user"
-    ) -> bool:
+    async def cancel_run(self, run_id: str, *, reason: str = "cancelled by the user") -> bool:
         run = await self.get_run(run_id)
         if run.status in {s.value for s in RunStatus.terminal()}:
             return False
@@ -947,9 +992,7 @@ class Orchestrator:
 # ---------------------------------------------------------------------------
 # module helpers
 # ---------------------------------------------------------------------------
-async def _find_step(
-    session: AsyncSession, run_id: str, plan_step_id: str
-) -> Step | None:
+async def _find_step(session: AsyncSession, run_id: str, plan_step_id: str) -> Step | None:
     """Find a step row by its *plan* step id (the short ``s1``-style label).
 
     The plan id is what appears in events and on the approval card, so it is the
@@ -989,10 +1032,8 @@ async def _latest_pending_approval(
 def _plan_result_from_payload(payload: dict[str, Any]) -> PlanResult | None:
     """Rebuild a :class:`PlanResult` (with fresh policy decisions) from stored JSON."""
     try:
-        plan = Plan.model_validate(
-            {k: v for k, v in payload.items() if k in Plan.model_fields}
-        )
-    except Exception:  # noqa: BLE001 - a malformed stored plan is not fatal
+        plan = Plan.model_validate({k: v for k, v in payload.items() if k in Plan.model_fields})
+    except Exception:
         return None
     from app.agent.policy import PolicyEngine
 

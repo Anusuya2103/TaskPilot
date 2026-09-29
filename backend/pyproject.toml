@@ -32,6 +32,14 @@ ignore = [
     "B008",   # FastAPI Depends() in defaults is idiomatic
     "RUF001", "RUF002", "RUF003",  # ambiguous unicode (we use ×, →, – deliberately)
     "N818",   # exception names
+    # --- deliberate design choices, not oversights -------------------------
+    "S110",   # try/except/pass around genuinely best-effort cleanup
+    "S112",   # try/except/continue on a polling loop
+    "SIM105", # contextlib.suppress is slower; a bare except is clearer here
+    "SIM117", # nested `with` reads better than a combined one
+    "ASYNC109",  # `timeout` kwargs read better than asyncio.timeout() in helpers
+    "UP042",  # `class X(str, Enum)` is intentional: it serialises as a string
+    "RUF012", # ClassVar annotations add noise to these small dataclasses
 ]
 
 [tool.ruff.lint.per-file-ignores]

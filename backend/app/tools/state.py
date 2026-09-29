@@ -92,7 +92,12 @@ class TaskCompleteTool(Tool):
 
     @property
     def examples(self) -> list[dict[str, Any]]:
-        return [{"summary": "Added the cheapest USB-C cable ($4.99) to the cart and stopped at payment."}]
+        return [
+            {
+                "summary": "Added the cheapest USB-C cable ($4.99) to the cart and "
+                "stopped at payment."
+            }
+        ]
 
     async def _run(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         summary = str(args["summary"])

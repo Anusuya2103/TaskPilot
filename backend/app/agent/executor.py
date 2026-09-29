@@ -22,7 +22,6 @@ browser, or an event bus.
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
@@ -37,7 +36,7 @@ from app.agent.verifier import Verifier
 from app.core.config import Settings, get_settings
 from app.core.errors import RunCancelled, TaskPilotError
 from app.core.logging import bind_step, get_logger, log_event
-from app.core.models import ApprovalStatus, RiskLevel, RunStatus, StepStatus
+from app.core.models import RiskLevel, RunStatus, StepStatus
 from app.core.schemas import PlanStep, ToolResult, VerificationVerdict
 from app.core.security import safe_preview
 from app.tools.base import ToolContext
@@ -288,8 +287,11 @@ class Executor:
         cached = state.get("idempotency", {}).get(idem_key)
         if cached is not None:
             log_event(
-                logger, logging.INFO, "step already executed; reusing result",
-                run_id=run_id, step_id=step.id,
+                logger,
+                logging.INFO,
+                "step already executed; reusing result",
+                run_id=run_id,
+                step_id=step.id,
             )
             result_out.status = StepStatus.DONE.value
             result_out.result = ToolResult(**cached)
@@ -305,7 +307,9 @@ class Executor:
         result_out.needs_approval = decision.needs_approval
         if decision.reasons:
             await self.hooks._maybe(
-                self.hooks.on_policy, step, decision,
+                self.hooks.on_policy,
+                step,
+                decision,
                 escalated=decision.rule_risk.rank > decision.declared_risk.rank,
             )
 
@@ -324,7 +328,7 @@ class Executor:
             if not approval.granted:
                 result_out.status = StepStatus.SKIPPED.value
                 result_out.error = f"not executed: approval {approval.status.value}"
-                await self.hooks._maybe(self.hooks.on_step_skipped, step, approval)  # type: ignore[attr-defined]
+                await self.hooks._maybe(self.hooks.on_step_skipped, step, approval)
                 outcome.steps.append(result_out)
                 return result_out
             args = approval.args or args
@@ -337,9 +341,7 @@ class Executor:
                 raise RunCancelled("Run was cancelled by the user")
             result_out.attempts = attempt
             started = time.perf_counter()
-            await self.hooks._maybe(
-                self.hooks.on_tool_call, step, args, attempt, max_attempts
-            )
+            await self.hooks._maybe(self.hooks.on_tool_call, step, args, attempt, max_attempts)
             try:
                 ctx = ToolContext(
                     run_id=run_id,
@@ -355,7 +357,7 @@ class Executor:
                 raise
             except TaskPilotError as exc:
                 result = ToolResult(ok=False, summary=exc.message, error=exc.message)
-            except Exception as exc:  # noqa: BLE001 - the run must survive one bad step
+            except Exception as exc:
                 logger.exception("executor: unexpected tool failure")
                 result = ToolResult(
                     ok=False, summary=f"{type(exc).__name__}: {exc}", error=str(exc)
@@ -365,9 +367,7 @@ class Executor:
             result_out.latency_ms = round((time.perf_counter() - started) * 1000, 1)
             result_out.screenshots = list(result.screenshots)
             if result.reasons:
-                await self.hooks._maybe(
-                    self.hooks.on_security, step, result.reasons
-                )
+                await self.hooks._maybe(self.hooks.on_security, step, result.reasons)
 
             verdict = await self.verifier.verify(
                 step,
@@ -375,9 +375,7 @@ class Executor:
                 tool_ok=result.ok,
             )
             result_out.verification = verdict
-            await self.hooks._maybe(
-                self.hooks.on_observation, step, result, verdict
-            )
+            await self.hooks._maybe(self.hooks.on_observation, step, result, verdict)
 
             if verdict.success:
                 result_out.status = StepStatus.DONE.value
@@ -441,9 +439,7 @@ class Executor:
             timeout=timeout,
             session_factory=session_factory,
         )
-        await self.hooks._maybe(
-            self.hooks.on_approval_decision, step, outcome, approval_id
-        )
+        await self.hooks._maybe(self.hooks.on_approval_decision, step, outcome, approval_id)
 
         if not outcome.granted:
             log_event(
@@ -456,9 +452,7 @@ class Executor:
             )
         return outcome
 
-    def build_preview(
-        self, step: PlanStep, decision: Any, state: dict[str, Any]
-    ) -> dict[str, Any]:
+    def build_preview(self, step: PlanStep, decision: Any, state: dict[str, Any]) -> dict[str, Any]:
         """What the human is shown before deciding.
 
         The preview is built from the *live* browser state when there is one, so
@@ -478,9 +472,7 @@ class Executor:
             "action": step.goal,
             "tool": step.tool,
             "tool_description": (
-                self.registry.get(step.tool).description
-                if self.registry.has(step.tool)
-                else ""
+                self.registry.get(step.tool).description if self.registry.has(step.tool) else ""
             ),
             "args": step.args,
             "args_preview": safe_preview(step.args, 600),
@@ -529,9 +521,7 @@ class Executor:
             default=str,
         )[:4000]
 
-    def _skip_remaining(
-        self, queue: list[PlannedStep], outcome: RunOutcome, reason: str
-    ) -> None:
+    def _skip_remaining(self, queue: list[PlannedStep], outcome: RunOutcome, reason: str) -> None:
         for planned in queue:
             outcome.steps.append(
                 StepOutcome(
@@ -576,13 +566,20 @@ class Executor:
         """Ask the planner for a new tail. Returns ``None`` if replanning fails."""
         if self.planner is None:
             log_event(
-                logger, logging.WARNING, "step failed but no planner is wired for replanning",
-                step_id=failed.id, reason=reason,
+                logger,
+                logging.WARNING,
+                "step failed but no planner is wired for replanning",
+                step_id=failed.id,
+                reason=reason,
             )
             return None
         log_event(
-            logger, logging.INFO, "replanning the remaining steps",
-            step_id=failed.id, attempt=replan_no, reason=reason,
+            logger,
+            logging.INFO,
+            "replanning the remaining steps",
+            step_id=failed.id,
+            attempt=replan_no,
+            reason=reason,
         )
         try:
             result = await self.planner.replan(
@@ -590,20 +587,21 @@ class Executor:
                 completed=completed,
                 failed=failed,
                 failure_reason=reason,
-                remaining=remaining,
+                remaining=[p.step for p in remaining],
                 last_observation=last_observation,
             )
-        except Exception as exc:  # noqa: BLE001 - replanning is best-effort
+        except Exception as exc:
             log_event(
-                logger, logging.ERROR, "replan failed",
-                step_id=failed.id, error=f"{type(exc).__name__}: {exc}",
+                logger,
+                logging.ERROR,
+                "replan failed",
+                step_id=failed.id,
+                error=f"{type(exc).__name__}: {exc}",
             )
             return None
         if not result.steps:
             return None
-        await self.hooks._maybe(
-            self.hooks.on_replan, failed, reason, result, replan_no
-        )
+        await self.hooks._maybe(self.hooks.on_replan, failed, reason, result, replan_no)
         return result.steps
 
 

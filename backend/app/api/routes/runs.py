@@ -96,10 +96,8 @@ async def get_screenshots(run_id: str) -> dict[str, Any]:
     dependencies=[Depends(require_api_key), Depends(rate_limit)],
 )
 async def cancel_run(run_id: str, orchestrator: Any = Depends(orchestrator_dep)) -> CancelResponse:
-    try:
-        await orchestrator.get_run(run_id)
-    except NotFoundError as exc:
-        raise
+    # A missing run surfaces as 404 from the orchestrator's own error type.
+    await orchestrator.get_run(run_id)
     accepted = await orchestrator.cancel_run(run_id)
     run = await orchestrator.get_run(run_id)
     return CancelResponse(
@@ -188,9 +186,7 @@ async def run_summary(run_id: str) -> Any:
         approvals_timed_out=len(
             [a for a in bundle["approvals"] if a.status == ApprovalStatus.TIMED_OUT.value]
         ),
-        risky_actions_executed_without_approval=gate[
-            "risky_actions_executed_without_approval"
-        ],
+        risky_actions_executed_without_approval=gate["risky_actions_executed_without_approval"],
         duration_seconds=payload["duration_seconds"],
         manual_baseline_seconds=payload["manual_baseline_seconds"],
         time_saved_seconds=payload["time_saved_seconds"],
@@ -236,8 +232,12 @@ async def download_report(run_id: str, fmt: str) -> Any:
     if key not in {"md", "markdown", "json", "pdf"}:
         raise NotFoundError(f"Unknown report format {fmt!r}")
     paths = report_paths(run_id)
-    target = {"md": paths["markdown"], "markdown": paths["markdown"],
-              "json": paths["json"], "pdf": paths["pdf"]}[key]
+    target = {
+        "md": paths["markdown"],
+        "markdown": paths["markdown"],
+        "json": paths["json"],
+        "pdf": paths["pdf"],
+    }[key]
     if not target.exists():
         bundle = await load_run_bundle(run_id)
         if bundle is None:
