@@ -179,6 +179,23 @@ including that a broken JSON edit is rejected locally instead of being sent.
 
 ---
 
+## Database migrations
+
+Schema is managed by Alembic. The app also calls `create_all` on boot for local
+development and tests, so a fresh clone works with no migration step.
+
+```bash
+make migrate                                  # alembic upgrade head
+make migrate-autogen                          # after editing app/core/models.py
+cd backend && ../.venv/Scripts/alembic downgrade base   # roll back
+```
+
+The Docker image runs `alembic upgrade head` on start. A failed migration is
+logged and the server still starts, so `/ready` reports the database as degraded
+rather than the container crash-looping.
+
+---
+
 ## Evaluation
 
 ```bash
@@ -208,6 +225,7 @@ backend/
                      report · state · mcp_bridge
     core/            config · db · models · schemas · events · security · logging
     reports/         Markdown / JSON / PDF generation
+  alembic/versions/  schema migrations
     demo/            canned tasks · MockShop loader
   eval/              tasks.py · run.py · results.md · charts/
   tests/             31 tests

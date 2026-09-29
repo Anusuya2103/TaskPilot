@@ -64,6 +64,12 @@ eval: ## Run the 15-task evaluation and write results
 eval-quick: ## First 3 eval tasks only (fast smoke)
 	cd backend && ../$(PY) -m eval.run --tasks 3 --reset-each
 
+migrate: ## Apply database migrations (alembic upgrade head)
+	cd backend && ../$(VENV)/Scripts/alembic upgrade head
+
+migrate-autogen: ## Autogenerate a migration after changing models
+	cd backend && ../$(VENV)/Scripts/alembic revision --autogenerate -m "describe change"
+
 lint: ## ruff + eslint
 	cd backend && ../$(VENV)/Scripts/ruff check app eval tests
 	cd frontend && npm run lint
