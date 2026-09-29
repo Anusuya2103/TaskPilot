@@ -165,6 +165,7 @@ at any public catalogue to try task 3 for real.
 make test          # everything
 make test-backend  # pytest: unit + e2e (real Chromium, real gate, real MockShop)
 make test-frontend # vitest
+make test-e2e      # Playwright approve-flow spec (starts its own servers)
 ```
 
 **Backend (31 tests).** The most important files are
@@ -303,10 +304,11 @@ Honest list of what is *not* finished:
    "observed but did not complete" plan rather than a guess.
 5. **MCP is stdio + SSE, one session per server.** No OAuth, no per-user servers.
 6. **No auth or multi-tenancy.** Optional `X-API-Key` only; single shared namespace.
-7. **The e2e suite is not run in CI.** The Playwright approve-flow spec exists
-   (`frontend/e2e/`) and starts its own API + web server, but it needs Chromium
-   and two free ports, so CI runs the backend e2e and the frontend unit tests.
-   Run it locally with `cd frontend && npm run e2e`.
+7. **The frontend e2e suite is not run in CI.** The Playwright approve-flow
+   spec exists (`frontend/e2e/`), starts its own API + web server, and passes
+   locally in ~45s — but it needs Chromium and two free ports alongside the
+   existing suite, so CI runs the backend e2e and the frontend unit tests.
+   Run it with `cd frontend && npm run e2e`.
 8. **Rate limiting is per-process** (in-memory rolling window), so it resets on
    restart and is per-worker behind a load balancer.
 9. **Step timeouts are wall-clock per attempt**, not a total budget for a step
