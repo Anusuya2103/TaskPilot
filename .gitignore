@@ -36,6 +36,12 @@ uploads/
 *.db
 *.sqlite3
 *.sqlite
+# SQLite WAL sidecars do not match *.db
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+e2e.db
 # eval artefacts are committed on purpose: they are the submission evidence
 
 
