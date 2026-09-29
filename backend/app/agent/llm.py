@@ -18,6 +18,7 @@ from __future__ import annotations
 import abc
 import asyncio
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -32,6 +33,7 @@ from app.core.logging import get_logger, log_event, scrub
 from app.core.security import sanitize_untrusted
 
 logger = get_logger(__name__)
+
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -514,3 +516,103 @@ def _safe_error(response: httpx.Response) -> str:
 
 
 # __APPEND__
+
+
+def _scripted_client(settings: Settings) -> "ScriptedLLM":
+    from app.agent.scripted import ScriptedLLM
+
+    return ScriptedLLM(settings)
+
+
+# Provider name -> builder. Extension point for an OpenAI-compatible gateway.
+_BUILDERS: dict[str, Any] = {
+    "anthropic": AnthropicClient,
+    "openai": OpenAIClient,
+    "gemini": GeminiClient,
+    "scripted": _scripted_client,
+}
+
+_cached: dict[tuple[str, str], LLMClient] = {}
+
+
+def build_llm(
+    provider: str | None = None,
+    model: str | None = None,
+    settings: Settings | None = None,
+) -> LLMClient:
+    """Instantiate a client, transparently falling back to scripted mode.
+
+    The fallback is what keeps the public demo alive when API credits run out or
+    no key is configured. It is logged loudly and surfaced in ``/health`` so it
+    can never be mistaken for a real model.
+    """
+    settings = settings or get_settings()
+    provider = (provider or settings.llm_provider or "anthropic").lower()
+    key = settings.provider_key(provider)
+
+    if provider != "scripted" and not key and settings.allow_scripted_fallback:
+        log_event(
+            logger,
+            logging.WARNING,
+            f"no API key for {provider}; falling back to the deterministic scripted brain",
+            provider=provider,
+        )
+        provider = "scripted"
+        key = "scripted"
+
+    builder = _BUILDERS.get(provider)
+    if builder is None:
+        raise LLMError(f"Unknown LLM provider {provider!r}. Known: {sorted(_BUILDERS)}")
+
+    client = builder(settings)
+    if model and getattr(client, "model", "") != model:
+        # Model selection is a per-client attribute; copy rather than mutate shared state.
+        import copy
+
+        client = copy.copy(client)
+        client.model = model
+    return client
+
+
+def get_llm(
+    provider: str | None = None,
+    model: str | None = None,
+    settings: Settings | None = None,
+) -> LLMClient:
+    """Cached accessor — one HTTP-configured client per (provider, model)."""
+    settings = settings or get_settings()
+    resolved = (provider or settings.llm_provider or "anthropic").lower()
+    if resolved != "scripted" and not settings.provider_key(resolved) and settings.allow_scripted_fallback:
+        resolved = "scripted"
+    resolved_model = model or settings.llm_model
+    cache_key = (resolved, resolved_model or "")
+    if cache_key not in _cached:
+        _cached[cache_key] = build_llm(resolved, resolved_model, settings)
+    return _cached[cache_key]
+
+
+def reset_llm() -> None:
+    """Test helper: drop cached clients."""
+    _cached.clear()
+
+
+def provider_status(settings: Settings | None = None) -> list[dict[str, Any]]:
+    """Per-provider configuration state for the Settings page."""
+    settings = settings or get_settings()
+    active = (settings.llm_provider or "").lower()
+    if active != "scripted" and not settings.provider_key(active) and settings.allow_scripted_fallback:
+        active = "scripted"
+    out: list[dict[str, Any]] = []
+    for provider, default_model in DEFAULT_MODELS.items():
+        configured = provider == "scripted" or bool(settings.provider_key(provider))
+        out.append(
+            {
+                "id": provider,
+                "label": PROVIDER_LABELS[provider],
+                "default_model": default_model,
+                "configured": configured,
+                "models": MODEL_CHOICES[provider],
+                "active": provider == active,
+            }
+        )
+    return out

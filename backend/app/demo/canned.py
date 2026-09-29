@@ -131,7 +131,7 @@ def match_canned_task(prompt: str) -> CannedTask | None:
             return _BY_ID["mockshop-buy-cable"]
         return _BY_ID["mockshop-double-checkout"]
     if "book" in text and ("scrape" in text or "top 5" in text or "top five" in text):
-        return _BY_ID["scrape_books"]
+        return _BY_ID["scrape-books"]
     if "dashboard" in text or "how many orders" in text:
         return _BY_ID["mockshop-read-dashboard"]
     if "httpbin" in text or "lab exercise" in text or "capture the output" in text:

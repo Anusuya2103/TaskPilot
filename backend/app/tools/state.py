@@ -18,6 +18,7 @@ class NoteTool(Tool):
     """Records a fact in the run's scratchpad."""
 
     name = "note"
+    read_only = True
     description = (
         "Record a short factual note in the run scratchpad (no side effects). "
         "Use it to carry data forward between steps."
@@ -59,6 +60,7 @@ class TaskCompleteTool(Tool):
     """Declares the user's goal satisfied and carries the final answer."""
 
     name = "task_complete"
+    read_only = True
     description = (
         "Finish the run and return the final answer to the user. Call this as the "
         "LAST step once the goal is achieved. `summary` is shown verbatim on the "

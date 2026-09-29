@@ -136,6 +136,7 @@ class HttpFetchTool(HttpApiTool):
     name = "http_get"
     description = "Fetch a URL read-only (GET). Never mutates anything — always low risk."
     risk_level = RiskLevel.LOW
+    read_only = True
 
     @property
     def args_schema(self) -> dict[str, Any]:

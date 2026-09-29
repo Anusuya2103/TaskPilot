@@ -315,6 +315,7 @@ class BrowserOpenTool(_BrowserToolBase):
         "Open a URL in the agent's browser and capture the page. Use relative "
         "paths like '/product/3' for the MockShop demo store."
     )
+    read_only = True
     risk_level = RiskLevel.LOW
 
     @property
@@ -426,6 +427,10 @@ class BrowserTypeTool(_BrowserToolBase):
         "only when the field's own behaviour is the action; that is high risk."
     )
 
+    def keyword_risk_ceiling(self, args: dict[str, Any]) -> RiskLevel:
+        # Typing alone changes nothing on the server; pressing Enter can submit.
+        return RiskLevel.HIGH if args.get("submit") else RiskLevel.MEDIUM
+
     @property
     def args_schema(self) -> dict[str, Any]:
         return {
@@ -527,6 +532,11 @@ class BrowserFillFormTool(_BrowserToolBase):
     )
     requires_approval_hint = True
 
+    def keyword_risk_ceiling(self, args: dict[str, Any]) -> RiskLevel:
+        # Filling fields is reversible; submitting is not. That distinction is
+        # exactly why the plan models them as two separate steps.
+        return RiskLevel.HIGH if args.get("submit") else RiskLevel.MEDIUM
+
     @property
     def args_schema(self) -> dict[str, Any]:
         return {
@@ -621,6 +631,7 @@ class BrowserFillFormTool(_BrowserToolBase):
 
 class BrowserExtractTool(_BrowserToolBase):
     name = "browser_extract"
+    read_only = True
     description = (
         "Read structured data out of the current page. Use it to scrape lists, "
         "tables and prices. Returns `items` (up to 60) plus the page text."
@@ -728,6 +739,7 @@ class BrowserExtractTool(_BrowserToolBase):
 
 class BrowserScreenshotTool(_BrowserToolBase):
     name = "browser_screenshot"
+    read_only = True
     description = "Capture the current page as a PNG (for the report and audit trail)."
 
     @property
@@ -763,6 +775,7 @@ class BrowserScreenshotTool(_BrowserToolBase):
 
 class BrowserCloseTool(_BrowserToolBase):
     name = "browser_close"
+    read_only = True
     description = "Close this run's browser context and release resources."
 
     @property

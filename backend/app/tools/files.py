@@ -40,6 +40,7 @@ def _sandbox(ctx: ToolContext, raw: str, *, must_exist: bool = False) -> Path:
 
 class FilesReadTool(Tool):
     name = "file_read"
+    read_only = True
     description = (
         "Read a text file from the run workspace (paths are relative to it). "
         "Use it to pick up captured tool output before writing a report."
@@ -135,6 +136,7 @@ class FilesWriteTool(Tool):
 
 class FilesListTool(Tool):
     name = "file_list"
+    read_only = True
     description = "List files in the run workspace (or a subdirectory of it)."
     risk_level = RiskLevel.LOW
     category = "files"

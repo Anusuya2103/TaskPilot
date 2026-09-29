@@ -73,6 +73,21 @@ class Tool(abc.ABC):
     server: str | None = None
     available: bool = True
     timeout_seconds: float | None = None
+    #: True when the tool *cannot* change remote or local state. Read-only tools
+    #: are exempt from keyword-driven risk, because "Open the checkout page" and
+    #: "Place the order" differ entirely in effect, not in vocabulary.
+    read_only: bool = False
+
+    def keyword_risk_ceiling(self, args: dict[str, Any]) -> RiskLevel:
+        """Highest risk that *keyword analysis alone* may assign to this step.
+
+        The policy engine never lets language escalate a read-only action past
+        this ceiling, which is what keeps the approval gate from firing on
+        "open the checkout page" while still firing on "click Place order".
+        Structural rules (submit flags, HTTP verbs, file overwrites) are *not*
+        capped — they describe the effect directly.
+        """
+        return RiskLevel.LOW if self.read_only else RiskLevel.HIGH
 
     # --- declarative metadata -------------------------------------------------
     @property

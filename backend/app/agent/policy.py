@@ -158,6 +158,16 @@ class PolicyEngine:
 
         haystack = self._haystack(goal, args)
         benign = bool(BENIGN_CONTEXT.search(goal))
+        # Keyword analysis can only escalate up to what the *tool* is capable of
+        # doing. A read-only tool stays low-risk however scary its description is;
+        # a non-submitting form fill tops out at medium. Structural rules later
+        # still apply, because they describe effects rather than vocabulary.
+        ceiling = (
+            tool.keyword_risk_ceiling(args) if tool is not None else RiskLevel.HIGH
+        )
+        # NB: `max()` on a str-Enum compares alphabetically ("high" < "low"), so
+        # the merge must always go through the rank-aware helper.
+        ceiling = RiskLevel.max_of(ceiling, tool_risk)
 
         # 1. tool-declared baseline ------------------------------------------
         if tool_risk.rank > RiskLevel.LOW.rank:
@@ -166,7 +176,7 @@ class PolicyEngine:
                 "tool_baseline",
                 f"tool {tool_name!r} is declared {tool_risk.value} risk",
             )
-        if tool is not None and tool.requires_approval_hint:
+        if tool is not None and tool.requires_approval_hint and ceiling.rank > RiskLevel.LOW.rank:
             raise_to(
                 RiskLevel.MEDIUM,
                 "tool_hint",
@@ -177,39 +187,47 @@ class PolicyEngine:
         money_hits = self._terms(haystack, PAYMENT_TERMS)
         if money_hits:
             raise_to(
-                RiskLevel.HIGH,
+                ceiling,
                 "payment_terms",
-                f"step involves payment/purchase language: {_quote(money_hits)}",
+                f"payment/purchase language {_quote(money_hits)}"
+                + (f" (capped at {ceiling.value}: this tool cannot change state)"
+                   if ceiling is not RiskLevel.HIGH else ""),
             )
 
         # 3. destructive -----------------------------------------------------
         destructive_hits = self._terms(haystack, DESTRUCTIVE_TERMS)
         if destructive_hits:
             raise_to(
-                RiskLevel.HIGH,
+                ceiling,
                 "destructive_terms",
-                f"step can permanently remove data: {_quote(destructive_hits)}",
+                f"language that implies removing data {_quote(destructive_hits)}"
+                + (f" (capped at {ceiling.value})" if ceiling is not RiskLevel.HIGH else ""),
             )
 
         # 4. outbound / submission -------------------------------------------
         outbound_hits = self._terms(haystack, OUTBOUND_TERMS)
         if outbound_hits:
-            level = RiskLevel.MEDIUM if benign and not money_hits else RiskLevel.HIGH
+            level = ceiling
+            if benign and not money_hits and ceiling.rank > RiskLevel.MEDIUM.rank:
+                # "read the report" / "show the confirmation" must not gate.
+                level = RiskLevel.MEDIUM
             raise_to(
                 level,
                 "outbound_terms",
-                f"step sends information or submits something: {_quote(outbound_hits)}",
+                f"language that implies sending or submitting {_quote(outbound_hits)}"
+                + (f" (capped at {level.value})" if level is not RiskLevel.HIGH else ""),
             )
 
         # 5. selector shape --------------------------------------------------
-        selectors = self._selectors(args)
-        submit_selectors = [s for s in selectors if SUBMIT_SELECTOR.search(s)]
-        if submit_selectors:
-            raise_to(
-                RiskLevel.HIGH,
-                "submit_control",
-                f"target looks like a submit/pay/delete control: {_quote(submit_selectors)}",
-            )
+        if ceiling.rank > RiskLevel.LOW.rank:
+            selectors = self._selectors(args)
+            submit_selectors = [s for s in selectors if SUBMIT_SELECTOR.search(s)]
+            if submit_selectors:
+                raise_to(
+                    RiskLevel.HIGH,
+                    "submit_control",
+                    f"target looks like a submit/pay/delete control: {_quote(submit_selectors)}",
+                )
 
         return self._finish(
             step,
