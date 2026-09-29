@@ -1,6 +1,11 @@
 # Playwright's official image already ships Chromium + all system libraries, which
 # is far more reliable than installing them by hand.
-FROM mcr.microsoft.com/playwright/python:v1.49.0-jammy
+#
+# Use the *-noble variant: the older *-jammy tag ships Python 3.10, and this
+# project requires >=3.11 (`from datetime import UTC` needs 3.11). Noble has
+# 3.12. The browser builds are pinned to the Playwright version, so Chromium
+# stays in step with the pip package.
+FROM mcr.microsoft.com/playwright/python:v1.49.0-noble
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

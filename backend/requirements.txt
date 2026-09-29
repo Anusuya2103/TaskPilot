@@ -11,6 +11,11 @@ alembic>=1.14,<2
 greenlet>=3.1,<4
 httpx>=0.27,<1
 python-multipart>=0.0.12
-playwright>=1.48,<2
+# Pinned, not ranged. The Playwright container image ships browser builds for
+# one specific Playwright version; an open range like >=1.48,<2 lets pip install a
+# newer release whose Chromium build number is absent from the image, and every
+# browser tool then fails with "Executable doesn't exist at /ms-playwright/...".
+# Keep this in step with the FROM tag in backend/Dockerfile.
+playwright==1.49.0
 mcp>=1.1,<2
 reportlab>=4.2,<5

@@ -3,7 +3,11 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
-RUN pip install --no-cache-dir "fastapi>=0.115,<0.120" "uvicorn[standard]>=0.32,<0.40"
+# python-multipart is required: the app mounts form endpoints (the lab-report
+# form), and FastAPI refuses to start without it. It is easy to miss because
+# the local dev venv already has it via backend/requirements.txt.
+RUN pip install --no-cache-dir "fastapi>=0.115,<0.120" "uvicorn[standard]>=0.32,<0.40" \
+    "python-multipart>=0.0.12"
 
 COPY app.py /app/app.py
 

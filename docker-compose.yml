@@ -5,6 +5,9 @@
 # The API falls back to the deterministic scripted brain when no LLM key is set,
 # so this works on a fresh clone with an empty .env.
 
+# Host ports are overridable so the stack can run alongside other services.
+# The defaults below are the documented ones (make up reads the same vars).
+#   TASKPILOT_WEB_PORT=3010 TASKPILOT_API_PORT=8010 docker compose up
 services:
   db:
     image: postgres:16-alpine
@@ -14,7 +17,7 @@ services:
       POSTGRES_PASSWORD: taskpilot
       POSTGRES_DB: taskpilot
     ports:
-      - "5432:5432"
+      - "${TASKPILOT_DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -28,7 +31,7 @@ services:
       context: ./demo-apps/mockshop
     restart: unless-stopped
     ports:
-      - "9000:9000"
+      - "${TASKPILOT_MOCKSHOP_PORT:-9000}:9000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:9000/health')"]
       interval: 10s
@@ -36,17 +39,23 @@ services:
       retries: 10
 
   api:
+    # Context is the repo root, not ./backend: the Dockerfile copies both
+    # backend/ and demo-apps/, so it needs to see them side by side. It also
+    # needs backend/alembic.ini, which lives outside backend/alembic/.
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     env_file: [.env]
     environment:
       TASKPILOT_DATABASE_URL: postgresql+asyncpg://taskpilot:taskpilot@db:5432/taskpilot
       MOCKSHOP_BASE_URL: http://mockshop:9000
       TASKPILOT_MOCKSHOP_BASE_URL: http://mockshop:9000
-      TASKPILOT_CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      # Must list the origin the *browser* uses, which is the published web
+      # port — not the in-network service name.
+      TASKPILOT_CORS_ORIGINS: http://localhost:${TASKPILOT_WEB_PORT:-3000},http://127.0.0.1:${TASKPILOT_WEB_PORT:-3000}
     ports:
-      - "8000:8000"
+      - "${TASKPILOT_API_PORT:-8000}:8000"
     volumes:
       - artifacts:/app/artifacts
     depends_on:
@@ -59,11 +68,11 @@ services:
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
-        NEXT_PUBLIC_SSE_BASE_URL: http://localhost:8000
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:${TASKPILOT_API_PORT:-8000}
+        NEXT_PUBLIC_SSE_BASE_URL: http://localhost:${TASKPILOT_API_PORT:-8000}
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${TASKPILOT_WEB_PORT:-3000}:3000"
     depends_on:
       - api
 
