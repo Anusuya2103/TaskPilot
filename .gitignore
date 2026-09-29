@@ -36,10 +36,10 @@ uploads/
 *.db
 *.sqlite3
 *.sqlite
-backend/eval/eval_results.json
-backend/eval/results.md
-backend/eval/charts/*.png
-backend/eval/charts/*.svg
+# eval artefacts are committed on purpose: they are the submission evidence
+
+
+
 
 # --- OS / editors ---
 .DS_Store

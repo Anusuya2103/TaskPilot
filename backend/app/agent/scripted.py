@@ -323,6 +323,59 @@ def _plan_generic(goal: str, tools: list[str], base: str) -> dict[str, Any]:
     }
 
 
+def _plan_cart_inspect() -> dict[str, Any]:
+    return {
+        "goal": "Read the MockShop cart and report its contents and total.",
+        "success_criteria": ["the cart contents and total are reported to the user"],
+        "estimated_manual_minutes": 1.0,
+        "notes": "Read-only: the agent must not ask for approval to look at a cart.",
+        "steps": [
+            _step("s1", "Open the MockShop cart", "browser_open",
+                  {"url": "/cart", "wait_for": "[data-testid=\"cart-link\"]"},
+                  "the cart page loads"),
+            _step("s2", "Read the cart lines and the total", "browser_extract",
+                  {"item_selector": "[data-testid=\"cart-row\"]",
+                   "fields": {"name": "[data-testid=\"cart-item-name\"]",
+                              "qty": "[data-testid=\"cart-item-qty\"]",
+                              "price": "[data-testid=\"cart-item-subtotal\"]"},
+                   "text_selector": "[data-testid=\"cart-total\"]",
+                   "limit": 20},
+                  "the cart contents and the total are captured"),
+            _step("s3", "Report the outcome", "task_complete",
+                  {"summary": "Read the MockShop cart and reported the lines and total shown "
+                              "in the extracted data. Nothing was modified, so no approval "
+                              "was required.",
+                   "artifacts": []},
+                  "the user receives the cart contents"),
+        ],
+    }
+
+
+def _plan_browse() -> dict[str, Any]:
+    return {
+        "goal": "Open the MockShop catalogue and list the products that are in stock.",
+        "success_criteria": ["the in-stock products are listed for the user"],
+        "estimated_manual_minutes": 2.0,
+        "notes": "Plain browsing — a zero-interruption path.",
+        "steps": [
+            _step("s1", "Open the MockShop catalogue", "browser_open",
+                  {"url": "/", "wait_for": ".product-card"},
+                  "the product grid is visible"),
+            _step("s2", "Extract every product with its name, price and stock", "browser_extract",
+                  {"item_selector": ".product-card",
+                   "fields": {"name": ".product-name", "price": ".price", "meta": ".meta"},
+                   "limit": 20},
+                  "one record per product with a name and a price"),
+            _step("s3", "Report the outcome", "task_complete",
+                  {"summary": "Browsed the MockShop catalogue and listed the products with "
+                              "their prices as captured above. Nothing was changed, so no "
+                              "approval was required.",
+                   "artifacts": []},
+                  "the user receives the catalogue listing"),
+        ],
+    }
+
+
 PLAN_BUILDERS: dict[str, Any] = {
     "mockshop_buy": _plan_buy_cheapest_cable,
     "lab_report": _plan_lab_report,
@@ -330,6 +383,8 @@ PLAN_BUILDERS: dict[str, Any] = {
     "scrape_books": lambda: _plan_scrape_books(get_settings().books_base_url),
     "dashboard_read": _plan_dashboard_read,
     "lab_exercise": _plan_lab_exercise,
+    "cart_inspect": _plan_cart_inspect,
+    "browse": _plan_browse,
 }
 
 
