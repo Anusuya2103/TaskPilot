@@ -220,3 +220,50 @@ async def test_lab_report_submission_pauses_before_submit(mockshop_url):
     assert report["patient_name"] == "Anita Rao"
     assert report["test_type"] == "Lipid Panel"
     assert report["priority"] == "urgent"
+
+
+async def test_approval_by_step_uuid_also_releases_the_executor(mockshop_url):
+    """Regression: the API accepts either the plan id or the step UUID.
+
+    The broker is keyed on the *plan* step id (``s8``) because that is what the
+    executor awaits. Passing the row UUID must resolve to the same waiter, or an
+    approval made through the HTTP API would be recorded but never release the
+    run — the single most damaging possible bug in this system.
+    """
+    from app.agent.orchestrator import Orchestrator
+
+    orchestrator = Orchestrator()
+    run = await orchestrator.create_task_run(
+        TaskCreate(prompt="Find the cheapest USB-C cable on MockShop, add it to cart, and buy it")
+    )
+    await orchestrator.start_run(run.id)
+
+    # Wait for the gate, then deliberately use the DB row id, not the plan id.
+    # `get_run` returns the ORM Run, so read the pending approval off its rows.
+    uuid_step_id = None
+    loop = asyncio.get_event_loop()
+    deadline = loop.time() + 90
+    while loop.time() < deadline and uuid_step_id is None:
+        current = await orchestrator.get_run(run.id)
+        for pending in current.approvals:
+            if pending.status == ApprovalStatus.PENDING.value:
+                uuid_step_id = pending.step_id
+                break
+        if current.status in TERMINAL:
+            break
+        await asyncio.sleep(0.2)
+    assert uuid_step_id is not None, "the run never requested approval"
+    plan_step_id = _plan_step_id(await orchestrator.get_run(run.id), uuid_step_id)
+    assert uuid_step_id != plan_step_id, "the test needs two distinct identifiers"
+
+    approval = await orchestrator.decide_approval(
+        run.id, uuid_step_id, ApprovalDecision(decision="approve", decided_by="uuid-test")
+    )
+    assert approval.status == ApprovalStatus.APPROVED.value
+
+    final = await _wait_for_terminal(orchestrator, run.id, timeout=30)
+    assert final.status == RunStatus.COMPLETED.value, (
+        "an approval made with the step UUID did not release the executor: "
+        f"{final.error}"
+    )
+    assert _store().orders, "the order should exist after the approval"

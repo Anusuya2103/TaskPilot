@@ -33,6 +33,8 @@ async def create_task(payload: TaskCreate, orchestrator: Any = Depends(orchestra
     run = await orchestrator.create_task_run(payload)
     if payload.auto_start and not payload.review_plan:
         await orchestrator.start_run(run.id)
+    # `to_run_out` is async: re-read the run so the response includes the
+    # persisted plan and steps that `start_run` may have created.
     return await to_run_out(run.id)
 
 

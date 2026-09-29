@@ -61,7 +61,10 @@ async def to_run_out(run: Run | str, *, session: AsyncSession | None = None) -> 
     if isinstance(run, str):
         async with session_scope() as new_session:
             loaded = await _load_run(new_session, run)
-            return to_run_out(loaded)
+            # `await` is essential: `return to_run_out(loaded)` from inside an
+            # `async def` hands the caller a *coroutine*, not a RunOut, and
+            # FastAPI then fails response validation.
+            return await to_run_out(loaded)
     prompt = run.task.prompt if run.task else ""
     pending = _pending_approval(run)
     return RunOut(

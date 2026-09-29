@@ -643,7 +643,13 @@ class Orchestrator:
         step_id: str,
         decision: ApprovalDecision,
     ) -> Approval:
-        """API entry point: record a human decision and release the executor."""
+        """API entry point: record a human decision and release the executor.
+
+        ``step_id`` may be either the plan id (``s8``) or the step UUID — the
+        approval card uses the plan id, but the API surface also exposes the row
+        id, and both must release the *same* waiter. The broker is keyed on the
+        plan id, so it is resolved here.
+        """
         async with session_scope() as session:
             step = await _find_step(session, run_id, step_id)
             if step is None:
@@ -673,12 +679,14 @@ class Orchestrator:
                 step.approved_at = approval.decided_at
             approval_id = approval.id
             db_step_id = step.id
+            plan_step_id = _plan_step_id_of(step)
 
         # Wake the executor *after* the row is committed, so the DB poll and the
-        # in-process event can never disagree about what was decided.
+        # in-process event can never disagree about what was decided. The broker
+        # is keyed by the plan step id, which is what the executor is waiting on.
         self.manager.broker.decide(
             run_id=run_id,
-            step_id=step_id,
+            step_id=plan_step_id,
             status=status,
             args=effective,
             decided_by=decision.decided_by,

@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Response
 
 from app import __version__
 from app.api.deps import settings_dep
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.db import ping
 from app.core.models import EventType
 from app.core.schemas import HealthOut
