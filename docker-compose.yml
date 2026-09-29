@@ -1,0 +1,72 @@
+# TaskPilot — one command brings up the API, the web UI, Postgres and MockShop.
+#
+#   cp .env.example .env && docker compose up
+#
+# The API falls back to the deterministic scripted brain when no LLM key is set,
+# so this works on a fresh clone with an empty .env.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskpilot
+      POSTGRES_PASSWORD: taskpilot
+      POSTGRES_DB: taskpilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mockshop:
+    build:
+      context: ./demo-apps/mockshop
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:9000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      TASKPILOT_DATABASE_URL: postgresql+asyncpg://taskpilot:taskpilot@db:5432/taskpilot
+      MOCKSHOP_BASE_URL: http://mockshop:9000
+      TASKPILOT_MOCKSHOP_BASE_URL: http://mockshop:9000
+      TASKPILOT_CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - artifacts:/app/artifacts
+    depends_on:
+      db:
+        condition: service_healthy
+      mockshop:
+        condition: service_started
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        NEXT_PUBLIC_SSE_BASE_URL: http://localhost:8000
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  artifacts:

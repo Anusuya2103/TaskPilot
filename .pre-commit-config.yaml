@@ -1,0 +1,59 @@
+# Pre-commit runs the same tools CI does, so a green local hook means a green build.
+default_language_version:
+  python: python3.11
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.(md|svg|png)$'
+      - id: end-of-file-fixer
+        exclude: '\.(md|svg|png)$'
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=900"]
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        files: ^backend/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        files: ^backend/app/
+        additional_dependencies: [pydantic, sqlalchemy, httpx, fastapi]
+        args: [--ignore-missing-imports, --no-strict-optional]
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.4.2
+    hooks:
+      - id: prettier
+        files: \.(ts|tsx|json|css|md|ya?ml)$
+
+  - repo: local
+    hooks:
+      - id: pytest-backend
+        name: pytest (backend, fast)
+        entry: bash -c 'cd backend && ../.venv/Scripts/python -m pytest tests/ -q -m "not e2e" || cd backend && python -m pytest tests/ -q -m "not e2e"'
+        language: system
+        pass_filenames: false
+        files: ^backend/(app|tests)/
+
+ci:
+  autoupdate_schedule: monthly

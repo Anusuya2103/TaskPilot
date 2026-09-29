@@ -195,6 +195,7 @@ export interface DemoTask {
   tools: string[];
   estimated_manual_minutes: number;
   category: string;
+  description: string;
 }
 
 export interface ToolInfo {

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { ToastHost, useToastStore } from "@/components/toast";
 import { useRunStore } from "@/store";
@@ -39,7 +39,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
 /** Subscribe the toast store to API errors raised anywhere in the tree. */
 function StoreBridge() {
-  const push = useToastStore((s) => s.push);
+  const push = useToastStore((s: { push: (t: { kind: "info" | "success" | "warning" | "error"; title: string; body?: string }) => void }) => s.push);
 
   useEffect(() => {
     const unsubscribe = useRunStore.subscribe((state, previous) => {

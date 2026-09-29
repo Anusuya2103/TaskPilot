@@ -66,7 +66,7 @@ export default function RunPage() {
       onDone: () => useRunStore.getState().setConnected(false),
       onEvent: (event) => {
         const state = useRunStore.getState();
-        state.pushEvent(event);
+        state.pushEvent({ ...event, stepId: null });
 
         if (event.type === "approval_requested") {
           if (state.soundEnabled) playApprovalChime();

@@ -5,6 +5,8 @@ import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 
 import { useToastStore, type ToastKind } from "@/store";
 
+export { useToastStore };
+
 const ICONS: Record<ToastKind, typeof Info> = {
   info: Info,
   success: CheckCircle2,

@@ -442,6 +442,8 @@ class DemoTaskOut(BaseModel):
     tools: list[str] = Field(default_factory=list)
     estimated_manual_minutes: float = 2.0
     category: str = "demo"
+    #: One-line explanation shown as the chip's tooltip in the UI.
+    description: str = ""
 
 
 class ReportOut(BaseModel):

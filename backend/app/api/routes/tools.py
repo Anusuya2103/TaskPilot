@@ -124,6 +124,7 @@ async def demo_tasks() -> list[DemoTaskOut]:
             tools=t.tools,
             estimated_manual_minutes=t.estimated_manual_minutes,
             category=t.category,
+            description=t.description,
         )
         for t in CANNED_TASKS
     ]
