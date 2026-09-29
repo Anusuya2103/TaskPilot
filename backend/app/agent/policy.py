@@ -142,7 +142,11 @@ class PolicyEngine:
         raw = step if isinstance(step, dict) else None
         goal = str(getattr(step, "goal", "") or (raw or {}).get("goal", "") or "")
         args: dict[str, Any] = getattr(step, "args", None) or (raw or {}).get("args", {}) or {}
-        declared_raw = getattr(step, "declared_risk", None) or (raw or {}).get("risk", "low")
+        # A PlanStep carries the planner's verdict in `.risk`; a dict carries it in
+        # "risk". Reading only `declared_risk` here would silently discard it.
+        declared_raw = getattr(step, "declared_risk", None) or getattr(step, "risk", None)
+        if declared_raw is None:
+            declared_raw = (raw or {}).get("risk", "low")
         declared = RiskLevel(declared_raw if declared_raw in {"low", "medium", "high"} else "low")
         tool_name = tool.name if tool else str(getattr(step, "tool", "") or (raw or {}).get("tool", ""))
         tool_risk = tool.risk_level if tool else RiskLevel.LOW
@@ -341,10 +345,22 @@ class PolicyEngine:
 
     @staticmethod
     def _haystack(goal: str, args: dict[str, Any]) -> str:
+        """Text for keyword analysis.
+
+        ``method`` is excluded on purpose: its values are HTTP verbs, so a plain
+        ``POST`` would otherwise match the "post/publish" keyword and gate every
+        mutating request for the wrong reason. URL risk is handled structurally
+        by :data:`RISKY_PATH` instead.
+        """
+        filtered = {
+            k: v
+            for k, v in (args or {}).items()
+            if k not in {"method", "headers"} and not str(k).startswith("__")
+        }
         try:
-            rendered = json.dumps(args, default=str)
+            rendered = json.dumps(filtered, default=str)
         except (TypeError, ValueError):  # pragma: no cover
-            rendered = str(args)
+            rendered = str(filtered)
         return f"{goal} {rendered}".lower()
 
     @staticmethod
