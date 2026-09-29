@@ -5,6 +5,7 @@ import {
   formatDuration,
   formatSeconds,
   mediaUrl,
+  parseApiDate,
   prettyJson,
   truncate,
 } from "@/lib/utils";
@@ -95,5 +96,43 @@ describe("mediaUrl", () => {
     expect(mediaUrl("media/screenshots/a.png")).toBe(
       `${API_BASE}/media/screenshots/a.png`,
     );
+  });
+});
+
+describe("parseApiDate", () => {
+  it("treats a naive timestamp as UTC, not local time", () => {
+    // Regression: the API sends naive UTC. `new Date("2026-09-29T14:40:20")`
+    // parses that as *local*, so east-of-UTC users saw a fresh approval render
+    // as hours-expired and the approve button stayed disabled.
+    const parsed = parseApiDate("2026-09-29T14:40:20.963663");
+    expect(parsed).not.toBeNull();
+    expect(parsed?.toISOString()).toBe("2026-09-29T14:40:20.963Z");
+  });
+
+  it("leaves a zoned timestamp alone", () => {
+    expect(parseApiDate("2026-09-29T14:40:20Z")?.toISOString()).toBe(
+      "2026-09-29T14:40:20.000Z",
+    );
+    expect(parseApiDate("2026-09-29T14:40:20+02:00")?.toISOString()).toBe(
+      "2026-09-29T12:40:20.000Z",
+    );
+  });
+
+  it("accepts a space-separated value", () => {
+    expect(parseApiDate("2026-09-29 14:40:20")?.toISOString()).toBe(
+      "2026-09-29T14:40:20.000Z",
+    );
+  });
+
+  it("returns null for missing or unparseable input", () => {
+    expect(parseApiDate(null)).toBeNull();
+    expect(parseApiDate(undefined)).toBeNull();
+    expect(parseApiDate("")).toBeNull();
+    expect(parseApiDate("not-a-date")).toBeNull();
+  });
+
+  it("renders a placeholder rather than 'Invalid Date'", () => {
+    expect(formatClock("not-a-date")).toBe("--:--:--");
+    expect(formatClock(null)).toBe("--:--:--");
   });
 });

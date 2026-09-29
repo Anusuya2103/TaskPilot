@@ -6,7 +6,7 @@ import { AlertTriangle, Check, Loader2, Pencil, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { api, type Approval } from "@/lib/api";
-import { cn, formatClock, mediaUrl, prettyJson } from "@/lib/utils";
+import { cn, formatClock, mediaUrl, parseApiDate, prettyJson } from "@/lib/utils";
 import { useToastStore } from "@/store";
 
 /**
@@ -38,7 +38,9 @@ export function ApprovalCard({
   useEffect(() => {
     if (!approval.expires_at) return;
     const tick = () => {
-      const ms = new Date(approval.expires_at as string).getTime() - Date.now();
+      // parseApiDate: the API sends naive UTC, which new Date() would read
+      // as local time and make a fresh approval look expired.
+      const ms = (parseApiDate(approval.expires_at)?.getTime() ?? 0) - Date.now();
       setRemaining(Math.max(0, Math.round(ms / 1000)));
     };
     tick();

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api, isTerminal, type Run } from "@/lib/api";
-import { cn, formatDuration } from "@/lib/utils";
+import { cn, formatDuration, parseApiDate } from "@/lib/utils";
 import { useRunStore, useToastStore } from "@/store";
 
 const TONE: Record<string, string> = {
@@ -32,7 +32,9 @@ export function RunTopBar({ run }: { run: Run }) {
       setElapsed(run.duration_ms ?? 0);
       return;
     }
-    const startedAt = run.started_at ? new Date(run.started_at).getTime() : Date.now();
+    // parseApiDate: naive UTC from the API, else the elapsed timer is skewed
+    // by the browser timezone offset.
+    const startedAt = parseApiDate(run.started_at)?.getTime() ?? Date.now();
     const tick = () => setElapsed(Date.now() - startedAt);
     tick();
     const timer = setInterval(tick, 500);

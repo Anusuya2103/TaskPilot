@@ -57,7 +57,11 @@ test.describe("approval gate", () => {
   test("pauses before paying, then completes after approval", async ({ page }) => {
     // --- submit the task through the UI ---------------------------------
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /TaskPilot/i })).toBeVisible();
+    // `exact` matters: /TaskPilot/i also matches the sr-only "What TaskPilot
+    // can do" heading, which is a strict-mode violation.
+    await expect(
+      page.getByRole("heading", { name: "TaskPilot", exact: true }),
+    ).toBeVisible();
 
     await page.getByTestId("demo-chip-mockshop-buy-cable").click();
     await expect(page.getByTestId("task-input")).toHaveValue(/cheapest USB-C cable/i);
@@ -93,11 +97,14 @@ test.describe("approval gate", () => {
     expect(summary.approvals_granted).toBe(1);
     expect(summary.risky_actions_executed_without_approval).toBe(0);
 
-    // The gated step carries the approval timestamp.
-    const steps = summary.steps as Array<Record<string, unknown>>;
+    // The gated step carries the approval timestamp. (RunSummaryOut has no
+    // per-step array, so read the steps off the run itself.)
+    const run = await (await fetch(`${API}/api/runs/${runId}`)).json();
+    const steps = run.steps as Array<Record<string, unknown>>;
     const gated = steps.filter((s) => s.needs_approval);
     expect(gated).toHaveLength(1);
     expect(gated[0].approved_at).toBeTruthy();
+    expect(gated[0].status).toBe("done");
 
     // --- completion UI ---------------------------------------------------
     await expect(page.getByTestId("completion-card")).toBeVisible({ timeout: 30_000 });

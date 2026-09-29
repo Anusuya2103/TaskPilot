@@ -25,16 +25,40 @@ export function formatSeconds(seconds: number | null | undefined): string {
   return `${minutes}m ${Math.round(seconds % 60)}s`;
 }
 
+/**
+ * Parse a backend timestamp.
+ *
+ * The API serialises naive UTC (`2026-09-29T14:40:20`), which `new Date()`
+ * interprets as *local* time. For any user east of UTC that makes a freshly
+ * requested approval look hours in the past, and the approve button renders
+ * permanently disabled. Treating a timestamp without a zone designator as UTC
+ * is what the server actually meant.
+ */
+export function parseApiDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const raw = value.trim();
+  // Already carries a zone (Z or ±hh:mm): trust it.
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)) {
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  // Naive: attach UTC explicitly rather than inheriting the local zone.
+  const normalized = raw.replace(" ", "T");
+  const withZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized)
+    ? normalized
+    : `${normalized}Z`;
+  const parsed = new Date(withZone);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export function formatTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+  const date = parseApiDate(iso);
+  return date ? date.toLocaleString() : "—";
 }
 
 export function formatClock(iso: string | null | undefined): string {
-  if (!iso) return "--:--:--";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "--:--:--";
+  const date = parseApiDate(iso);
+  if (!date) return "--:--:--";
   return date.toLocaleTimeString(undefined, { hour12: false });
 }
 

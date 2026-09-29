@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { api, type RunListItem, type RunStatus } from "@/lib/api";
-import { cn, formatDuration, truncate } from "@/lib/utils";
+import { cn, formatDuration, formatTime, truncate } from "@/lib/utils";
 
 const FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
@@ -129,7 +129,7 @@ function RunRow({ run }: { run: RunListItem }) {
           {run.goal || truncate(run.prompt, 70)}
         </span>
         <span className="mt-0.5 block font-mono text-[11px] text-faint">
-          {new Date(run.created_at).toLocaleString()} · {formatDuration(run.duration_ms)}
+          {formatTime(run.created_at)} · {formatDuration(run.duration_ms)}
           {saved !== null && saved > 0 ? ` · saved ${formatDuration(saved * 1000)}` : ""}
         </span>
       </span>

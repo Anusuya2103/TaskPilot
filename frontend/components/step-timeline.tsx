@@ -8,7 +8,7 @@ import {
 import { useState } from "react";
 
 import type { Step } from "@/lib/api";
-import { cn, formatDuration, prettyJson, truncate } from "@/lib/utils";
+import { cn, formatClock, formatDuration, prettyJson, truncate } from "@/lib/utils";
 import { stepTone } from "@/store";
 
 const ICONS: Record<string, typeof CheckCircle2> = {
@@ -185,7 +185,7 @@ function StepDetail({ step }: { step: Step }) {
       {step.needs_approval && step.approved_at ? (
         <p className="flex items-center gap-2 text-[11px] text-ok">
           <CheckCircle2 className="h-3 w-3" aria-hidden />
-          Approved by a human at {new Date(step.approved_at).toLocaleTimeString()}
+          Approved by a human at {formatClock(step.approved_at)}
         </p>
       ) : null}
     </div>
