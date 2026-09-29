@@ -292,14 +292,14 @@ class Orchestrator:
                 run_id, EventType.STEP_STARTED, step.goal,
                 {"step_id": step.id, "tool": step.tool, "args": step.args,
                  "expected_outcome": step.expected_outcome},
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
 
         async def tool_call(step: Any, args: dict[str, Any], attempt: int, total: int) -> None:
             await self._emit(
                 run_id, EventType.TOOL_CALL, f"{step.tool} (attempt {attempt}/{total})",
                 {"step_id": step.id, "tool": step.tool, "args": args},
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
 
         async def observation(step: Any, result: Any, verdict: Any) -> None:
@@ -318,14 +318,14 @@ class Orchestrator:
                     "latency_ms": result.latency_ms,
                     "screenshots": result.screenshots,
                 },
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
             await self._emit(
                 run_id, EventType.VERIFICATION,
                 "verified" if verdict.success else "verification failed",
                 {"step_id": step.id, "success": verdict.success,
                  "reason": verdict.reason, "confidence": verdict.confidence},
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
 
         async def step_done(step: Any, outcome: Any) -> None:
@@ -335,7 +335,7 @@ class Orchestrator:
                 {"step_id": step.id, "attempts": outcome.attempts,
                  "latency_ms": outcome.latency_ms,
                  "summary": outcome.result.summary if outcome.result else None},
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
 
         async def step_failed(step: Any, outcome: Any) -> None:
@@ -343,7 +343,7 @@ class Orchestrator:
             await self._emit(
                 run_id, EventType.STEP_FAILED, outcome.error or "step failed",
                 {"step_id": step.id, "attempts": outcome.attempts, "error": outcome.error},
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
 
         async def step_skipped(step: Any, approval: Any) -> None:
@@ -355,7 +355,7 @@ class Orchestrator:
                 run_id, EventType.STEP_SKIPPED,
                 f"skipped: approval {approval.status.value}",
                 {"step_id": step.id, "status": approval.status.value},
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
 
         async def retry(step: Any, attempt: int, total: int, reason: str) -> None:
@@ -363,7 +363,7 @@ class Orchestrator:
                 run_id, EventType.RETRY, f"retrying {step.id} after failure",
                 {"step_id": step.id, "attempt": attempt, "max_attempts": total,
                  "reason": reason},
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
 
         async def replan(failed: Any, reason: str, result: Any, number: int) -> None:
@@ -385,7 +385,7 @@ class Orchestrator:
             await self._emit(
                 run_id, EventType.POLICY_DECISION, decision.explanation()[:200],
                 {"step_id": step.id, **decision.to_dict(), "escalated_by_rules": escalated},
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
 
         async def security(step: Any, reasons: list[str]) -> None:
@@ -393,19 +393,19 @@ class Orchestrator:
                 run_id, EventType.SECURITY_NOTICE,
                 f"untrusted content filtered: {', '.join(reasons[:3])}",
                 {"step_id": step.id, "flags": reasons},
-                step_id=db_step(step.id),
+                step_id=await db_step(step.id),
             )
 
         async def screenshot(step: Any, _event: Any, message: str, payload: dict[str, Any]) -> None:
             await self._emit(
                 run_id, EventType.SCREENSHOT, message,
-                {"step_id": step.id, **payload}, step_id=db_step(step.id),
+                {"step_id": step.id, **payload}, step_id=await db_step(step.id),
             )
 
         async def log(step: Any, _event: Any, message: str, payload: dict[str, Any]) -> None:
             await self._emit(
                 run_id, EventType.LOG, message,
-                {"step_id": step.id, **payload}, step_id=db_step(step.id),
+                {"step_id": step.id, **payload}, step_id=await db_step(step.id),
             )
 
         hooks.on_step_start = step_start
