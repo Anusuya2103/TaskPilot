@@ -167,14 +167,14 @@ make test-backend  # pytest: unit + e2e (real Chromium, real gate, real MockShop
 make test-frontend # vitest
 ```
 
-**Backend (30 tests).** The most important files are
+**Backend (31 tests).** The most important files are
 [`tests/test_executor_gate.py`](backend/tests/test_executor_gate.py) — which proves the
 gated tool is never invoked on timeout, on rejection or on cancellation — and
 [`tests/test_policy.py`](backend/tests/test_policy.py), the risk-classification
 contract. `tests/test_e2e_mockshop.py` drives a full run in a real browser against a
 real MockShop and asserts the order exists **only because a human approved it**.
 
-**Frontend (21 tests).** `__tests__/approval-card.test.tsx` covers the approval UI,
+**Frontend (21 tests + 3 Playwright specs).** `__tests__/approval-card.test.tsx` covers the approval UI,
 including that a broken JSON edit is rejected locally instead of being sent.
 
 ---
@@ -210,7 +210,7 @@ backend/
     reports/         Markdown / JSON / PDF generation
     demo/            canned tasks · MockShop loader
   eval/              tasks.py · run.py · results.md · charts/
-  tests/             30 tests
+  tests/             31 tests
 frontend/            Next.js 14 App Router + Tailwind + Framer Motion
 demo-apps/mockshop/  the deterministic demo/eval target
 docs/                architecture · demo script · slide outline
@@ -285,8 +285,10 @@ Honest list of what is *not* finished:
    "observed but did not complete" plan rather than a guess.
 5. **MCP is stdio + SSE, one session per server.** No OAuth, no per-user servers.
 6. **No auth or multi-tenancy.** Optional `X-API-Key` only; single shared namespace.
-7. **The frontend has no automated e2e yet.** Components are unit-tested; the
-   Playwright spec is scaffolded but the approve-flow e2e is not wired into CI.
+7. **The e2e suite is not run in CI.** The Playwright approve-flow spec exists
+   (`frontend/e2e/`) and starts its own API + web server, but it needs Chromium
+   and two free ports, so CI runs the backend e2e and the frontend unit tests.
+   Run it locally with `cd frontend && npm run e2e`.
 8. **Rate limiting is per-process** (in-memory rolling window), so it resets on
    restart and is per-worker behind a load balancer.
 9. **Step timeouts are wall-clock per attempt**, not a total budget for a step
