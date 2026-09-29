@@ -1,0 +1,49 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.coverage.*
+*.cover
+
+# --- Node ---
+node_modules/
+.next/
+out/
+dist/
+.turbo/
+*.tsbuildinfo
+frontend/playwright-report/
+frontend/test-results/
+frontend/coverage/
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+
+# --- Runtime artifacts ---
+artifacts/
+uploads/
+*.db
+*.sqlite3
+*.sqlite
+backend/eval/eval_results.json
+backend/eval/results.md
+backend/eval/charts/*.png
+backend/eval/charts/*.svg
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

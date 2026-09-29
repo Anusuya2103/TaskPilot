@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "taskpilot"
+version = "1.0.0"
+description = "TaskPilot — an AI agent that plans, acts, and pauses for your approval."
+requires-python = ">=3.11"
+readme = "../README.md"
+
+[tool.setuptools.packages.find]
+include = ["app*", "eval*"]
+
+# ---------------------------------------------------------------------------
+# Formatting / linting / typing — single source of truth for CI + pre-commit
+# ---------------------------------------------------------------------------
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+extend-exclude = "alembic/versions"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "ASYNC", "S", "RUF"]
+ignore = [
+    "S101",   # assert — fine in tests
+    "B008",   # FastAPI Depends() in defaults is idiomatic
+    "RUF001", "RUF002", "RUF003",  # ambiguous unicode (we use ×, →, – deliberately)
+    "N818",   # exception names
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "N", "E501"]
+"eval/*" = ["S", "T201"]
+"app/demo/*" = ["S"]
+"alembic/*" = ["N", "S", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "eval"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+strict_equality = true
+check_untyped_defs = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+exclude = ["alembic/versions", "tests", "eval"]
+
+[[tool.mypy.overrides]]
+module = ["playwright.*", "mcp.*", "reportlab.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+addopts = "-q --strict-markers --timeout=180"
+markers = [
+    "e2e: end-to-end tests that launch a real browser / server",
+    "slow: tests that take more than a couple of seconds",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:alembic.*",
+    "ignore::DeprecationWarning:mcp.*",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/main.py", "alembic/*", "app/api/routes/*"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+precision = 1
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
