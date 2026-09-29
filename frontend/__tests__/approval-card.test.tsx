@@ -4,14 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApprovalCard } from "@/components/approval-card";
-import type { Approval } from "@/lib/api";
+import { api, type Approval } from "@/lib/api";
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
   return { ...actual, api: { ...actual.api, decideApproval: vi.fn() } };
 });
 
-const { api } = await import("@/lib/api");
+// `api` above is the mocked module, so this picks up the spy from vi.mock.
 const decide = vi.mocked(api.decideApproval);
 
 function makeApproval(overrides: Partial<Approval> = {}): Approval {
