@@ -42,40 +42,96 @@ jobs:
         run: mypy app
         continue-on-error: true
 
-      - name: Unit tests (no browser)
-        run: pytest tests/ -q -m "not e2e" --cov=app --cov-report=term-missing --cov-report=xml
+      # Coverage is measured across the WHOLE suite, e2e included.
+      #
+      # The browser layer (app/tools/browser.py) is only exercised by the e2e
+      # tests, so measuring with `-m "not e2e"` reported app.tools at ~66% and
+      # made the 80% bar unreachable. The e2e tests are real tests against real
+      # Chromium and MockShop; excluding them from the number understates the
+      # suite and hid the fact that the gate was measuring the wrong thing.
+      - name: Tests with coverage (unit + end-to-end)
+        run: pytest tests/ -q --cov=app --cov-report=term-missing --cov-report=xml
 
-      - name: End-to-end tests (real Chromium + MockShop)
-        run: pytest tests/ -q -m e2e
-
+      # The agent and tool layers are the product; hold them to a high bar.
+      # This script fails the build, unlike the inline version it replaces.
       - name: Coverage gate
         run: |
-          python - <<'PY'
-          import xml.etree.ElementTree as ET, sys
-          root = ET.parse("coverage.xml").getroot()
-          rate = float(root.attrib.get("line-rate", 0)) * 100
-          print(f"total line coverage: {rate:.1f}%")
-          # The agent and tool layers are the product; hold them to a high bar.
-          for package in ("app.agent", "app.tools"):
-              total = hit = 0
-              for cls in root.iter("class"):
-                  name = cls.attrib.get("filename", "")
-                  if not name.startswith(package.replace(".", "/")):
-                      continue
-                  for line in cls.iter("line"):
-                      total += 1
-                      hit += int(line.attrib.get("hits", "0")) > 0
-              if total:
-                  pct = hit / total * 100
-                  print(f"{package}: {pct:.1f}% ({hit}/{total})")
-          sys.exit(0)
-          PY
+          python scripts/coverage_gate.py --xml coverage.xml \
+            --package app.agent:80 \
+            --package app.tools:80 \
+            --total 75
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: backend-coverage
           path: backend/coverage.xml
+
+  compose:
+    name: Docker Compose — the stack actually boots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # `docker compose up -d` returns 0 even when every service is
+      # crash-looping, because `restart: unless-stopped` keeps Docker busy while
+      # the process dies. That is how a Python-3.10 image shipped to main with
+      # every browser tool broken. So this job asserts on real responses and on
+      # container health, not on the exit code.
+      - name: Build and start the stack
+        run: docker compose up -d --build --wait --wait-timeout 300
+
+      - name: Assert every container is healthy
+        run: |
+          set -euo pipefail
+          docker compose ps
+          # --wait already gates on health, so any non-running/starting service
+          # fails here rather than silently shipping.
+          test "$(docker compose ps --status running --quiet | wc -l)" -eq 4
+
+      - name: Assert the API answers on /health and /ready
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 10 --retry-delay 3 --retry-connrefused http://127.0.0.1:8000/health
+          echo
+          curl -fsS --retry 10 --retry-delay 3 --retry-connrefused http://127.0.0.1:8000/ready
+          echo
+
+      - name: Assert the web UI is served
+        run: curl -fsS --retry 10 --retry-delay 3 --retry-connrefused -o /dev/null http://127.0.0.1:3000/
+
+      # The single most important assertion in this job: a purchase task must
+      # stop for approval and create no order until a human approves.
+      - name: Assert the approval gate holds against the real stack
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST http://127.0.0.1:9000/api/reset > /dev/null
+          RUN=$(curl -fsS -X POST http://127.0.0.1:8000/api/tasks \
+            -H 'Content-Type: application/json' \
+            -d '{"prompt":"Find the cheapest USB-C cable on MockShop, add it to the cart, and buy it. Stop and ask me before you pay."}' \
+            | python -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+          echo "run: $RUN"
+          for _ in $(seq 1 30); do
+            STATUS=$(curl -fsS "http://127.0.0.1:8000/api/runs/$RUN" \
+              | python -c 'import json,sys; print(json.load(sys.stdin)["status"])')
+            [ "$STATUS" = "awaiting_approval" ] && break
+            [ "$STATUS" = "completed" ] || [ "$STATUS" = "failed" ] || true
+            sleep 3
+          done
+          echo "status: $STATUS"
+          [ "$STATUS" = "awaiting_approval" ] || { echo "expected awaiting_approval"; exit 1; }
+          ORDERS=$(curl -fsS http://127.0.0.1:9000/api/state \
+            | python -c 'import json,sys; print(json.load(sys.stdin)["orders"])')
+          echo "orders before approval: $ORDERS"
+          [ "$ORDERS" = "0" ] || { echo "an order was created before approval!"; exit 1; }
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
 
   frontend:
     name: Frontend — types, lint, unit tests, build

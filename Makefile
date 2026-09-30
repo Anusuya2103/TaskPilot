@@ -14,7 +14,7 @@ COMPOSE := docker compose
 
 .DEFAULT_GOAL := help
 .PHONY: help install install-backend install-frontend up down logs build \
-        test test-backend test-frontend test-e2e eval eval-quick lint fmt \
+        test test-backend test-frontend test-e2e coverage eval eval-quick lint fmt \
         typecheck mockshop dev dev-api dev-web clean precommit ci
 
 help: ## Show this help
@@ -55,6 +55,13 @@ test-backend: ## pytest (unit + e2e, no external services)
 test-frontend: ## vitest
 	cd frontend && npm run test
 
+# Coverage is measured across the whole suite, e2e included: the browser layer
+# is only exercised by the e2e tests, so excluding them understates app.tools.
+coverage: ## Run the suite with coverage and enforce the 80% gate
+	cd backend && ../$(PYTEST) tests/ -q --cov=app --cov-report=term-missing --cov-report=xml
+	cd backend && ../$(PY) scripts/coverage_gate.py --xml coverage.xml \
+		--package app.agent:80 --package app.tools:80 --total 75
+
 test-e2e: ## Playwright e2e (frontend)
 	cd frontend && npm run e2e
 
@@ -71,7 +78,7 @@ migrate-autogen: ## Autogenerate a migration after changing models
 	cd backend && ../$(VENV)/Scripts/alembic revision --autogenerate -m "describe change"
 
 lint: ## ruff + eslint
-	cd backend && ../$(VENV)/Scripts/ruff check app eval tests
+	cd backend && ../$(VENV)/Scripts/ruff check app eval tests scripts
 	cd frontend && npm run lint
 
 fmt: ## black + prettier

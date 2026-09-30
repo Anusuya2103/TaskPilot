@@ -140,9 +140,17 @@ class HttpFetchTool(HttpApiTool):
 
     @property
     def args_schema(self) -> dict[str, Any]:
+        # Narrow the parent's schema to the read-only arguments. The intent is to
+        # drop the *body* writers (``json_body``/``data``) and force GET.
+        #
+        # ``timeout_seconds`` must be kept: ``_run`` reads it, so dropping it here
+        # made a documented argument fail validation with "unknown argument(s)".
+        # ``method`` is intentionally dropped — this alias is GET-only.
         schema = dict(super().args_schema)
         schema["properties"] = {
-            k: v for k, v in schema["properties"].items() if k in {"url", "params", "headers"}
+            k: v
+            for k, v in schema["properties"].items()
+            if k in {"url", "params", "headers", "timeout_seconds"}
         }
         schema["required"] = ["url"]
         return schema

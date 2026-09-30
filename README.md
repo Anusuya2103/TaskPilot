@@ -55,6 +55,38 @@ No API key is required: with none configured the agent runs on a deterministic
 **scripted brain** so the demo always works — including on stage with no network.
 
 <details>
+<summary>Port already in use? Override the host ports</summary>
+
+The defaults (`3000` web, `8000` API, `5432` Postgres, `9000` MockShop) collide
+with common local services. Every host port is overridable, which is what lets
+the stack run alongside something else:
+
+```bash
+TASKPILOT_WEB_PORT=3010 \
+TASKPILOT_API_PORT=8010 \
+TASKPILOT_DB_PORT=55432 \
+TASKPILOT_MOCKSHOP_PORT=9100 \
+docker compose up
+```
+
+| Variable                   | Default | Serves                                  |
+| -------------------------- | ------- | --------------------------------------- |
+| `TASKPILOT_WEB_PORT`       | `3000`  | Next.js UI                              |
+| `TASKPILOT_API_PORT`       | `8000`  | FastAPI                                 |
+| `TASKPILOT_DB_PORT`        | `5432`  | Postgres                                |
+| `TASKPILOT_MOCKSHOP_PORT`  | `9000`  | MockShop demo store                     |
+
+The CORS allowlist is derived from `TASKPILOT_WEB_PORT`, so the browser origin
+keeps working when you move the UI — you do not need to edit `.env` as well.
+
+`docker compose up` returns exit code 0 even when a service is crash-looping
+(`restart: unless-stopped` keeps Docker busy while the process dies). To check
+the stack actually came up, use `docker compose up -d --wait`, or just
+`curl http://127.0.0.1:8000/health`.
+
+</details>
+
+<details>
 <summary>Run it locally without Docker</summary>
 
 ```bash
