@@ -1,0 +1,18 @@
+# The frontend image builds from ./frontend as its own context, so the root
+# .dockerignore does NOT apply here. Without this file `node_modules` and `.next`
+# are uploaded as build context on every rebuild (~375MB, and it invalidates the
+# dependency-install layer whenever the host's modules change).
+node_modules
+.next
+out
+coverage
+test-results
+playwright-report
+blob-report
+.playwright
+npm-debug.log*
+.env
+.env.*
+Dockerfile
+.dockerignore
+README.md

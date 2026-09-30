@@ -54,6 +54,30 @@ interface RunState {
 const MAX_LINES = 600;
 const MAX_FRAMES = 60;
 
+/**
+ * Pull a screenshot frame out of an event payload, or null if it isn't one.
+ *
+ * Shared by `pushEvent` (live SSE) and `seedHistory` (replay after a reload) so
+ * the two cannot drift: seeding used to rebuild `lines` only, which left the
+ * viewer reading "0 frames" for every run that was opened after it finished,
+ * even though the screenshots were on the server the whole time.
+ */
+function frameFromEvent(event: {
+  type: string;
+  at: string;
+  payload?: Record<string, unknown> | null;
+}): ScreenshotFrame | null {
+  if (event.type !== "screenshot") return null;
+  const src = typeof event.payload?.src === "string" ? event.payload.src : null;
+  if (!src) return null;
+  return {
+    src,
+    url: String(event.payload?.url ?? ""),
+    at: event.at,
+    label: String(event.payload?.label ?? ""),
+  };
+}
+
 export const useRunStore = create<RunState>((set) => ({
   runId: null,
   status: null,
@@ -90,14 +114,9 @@ export const useRunStore = create<RunState>((set) => ({
         id: event.id || Date.now(),
       };
       const screenshots = [...state.screenshots];
-      const src = typeof event.payload?.src === "string" ? event.payload.src : null;
-      if (event.type === "screenshot" && src) {
-        screenshots.push({
-          src,
-          url: String(event.payload?.url ?? ""),
-          at: line.at,
-          label: String(event.payload?.label ?? ""),
-        });
+      const frame = frameFromEvent({ type: event.type, at: line.at, payload: event.payload });
+      if (frame) {
+        screenshots.push(frame);
         if (screenshots.length > MAX_FRAMES) screenshots.splice(0, screenshots.length - MAX_FRAMES);
       }
       const lines = [...state.lines, line];
@@ -121,7 +140,14 @@ export const useRunStore = create<RunState>((set) => ({
         at: event.created_at,
         payload: event.payload,
       }));
-      return { lines, lastEventId: events.at(-1)?.id ?? state.lastEventId };
+      // Rehydrate the filmstrip too, not just the log. Without this, opening a
+      // finished run (or reloading mid-run) showed "0 frames" because the
+      // screenshots only ever arrived over the live SSE stream.
+      const screenshots = events
+        .map((event) => frameFromEvent({ type: event.type, at: event.created_at, payload: event.payload }))
+        .filter((frame): frame is ScreenshotFrame => frame !== null)
+        .slice(-MAX_FRAMES);
+      return { lines, screenshots, lastEventId: events.at(-1)?.id ?? state.lastEventId };
     }),
 
   setError: (lastError) => set({ lastError }),
