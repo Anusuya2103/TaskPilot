@@ -166,12 +166,33 @@ Every value has a working default; see [`.env.example`](.env.example) for the fu
 | `TASKPILOT_APPROVAL_TIMEOUT_SECONDS` | `300` | Unanswered ⇒ auto-**reject** |
 | `TASKPILOT_AUTO_APPROVE_LOW_RISK` | `true` | `false` ⇒ strict mode: medium-risk also pauses |
 | `TASKPILOT_DOMAIN_ALLOWLIST` | localhost, books.toscrape.com, … | Browser/HTTP refuse to leave these hosts |
-| `TASKPILOT_MCP_SERVERS` | `[]` | JSON array of MCP server specs |
+| `TASKPILOT_MCP_SERVERS` | 2 servers (see below) | JSON array of MCP server specs; `[]` disables the bridge |
 | `TASKPILOT_BROWSER_HEADLESS` | `true` | Set `false` to watch it work |
 | `TASKPILOT_API_KEY` | — | Optional shared secret (`X-API-Key`) for mutating endpoints |
 
 > **High-risk approval cannot be configured off.** There is no env var or API field
 > for it — that is deliberate, and the Settings page says so.
+
+#### MCP servers
+
+The API image installs [`uv`](https://docs.astral.sh/uv/), so the stdio servers
+shipped in `.env.example` work with no extra setup:
+
+| Server | Command | Tools |
+| --- | --- | --- |
+| `fetch` | `uvx mcp-server-fetch` | 1 |
+| `git` | `uvx mcp-server-git` | 12 |
+
+Their `uv` cache is warmed at image build, so they also start without network.
+Status is live on the **Settings → MCP servers** panel and on `/ready`
+(`mcp.ok`). A server that cannot launch is reported as `error` with the reason and
+**does not** stop the agent or the other servers — the built-in tools carry the
+demo either way.
+
+If you add a server, launch it with `uvx` unless you know the binary exists in the
+container. Note that `@modelcontextprotocol/server-filesystem` is **Node-only**
+(no PyPI package), so it needs `npx`, which this image deliberately does not ship;
+`mcp-server-git` covers the same use case without a ~200 MB Node runtime.
 
 ---
 

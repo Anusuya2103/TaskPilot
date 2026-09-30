@@ -19,6 +19,25 @@ WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
+# `uvx` is how the MCP bridge launches stdio servers (see TASKPILOT_MCP_SERVERS).
+# The Playwright base image has no uv and no Node, so without this every
+# configured MCP server dies with FileNotFoundError and the Settings page shows
+# a red "error" per server. Installing uv (not Node) keeps the image small:
+# the Python-hosted servers all run through `uvx`.
+#
+# The cache is pre-warmed here and chowned to the non-root runtime user below, so
+# the servers also start on a machine with no network — the alternative is a demo
+# that works on the developer's wifi and silently shows zero MCP tools anywhere
+# else. Server *launch* stays tolerant of failure: MCPManager.start() reports
+# rather than raises, and /ready surfaces `mcp: ok: false`.
+ENV UV_CACHE_DIR=/app/.uv-cache
+# `|| true`: a warm-up that fails (no network at build time) must not break the
+# image. The servers still resolve on first launch, just with a cold cache.
+RUN pip install "uv==0.5.11" && \
+    mkdir -p "$UV_CACHE_DIR" && \
+    (uvx mcp-server-fetch --help >/dev/null 2>&1 || true) && \
+    (uvx mcp-server-git --help >/dev/null 2>&1 || true)
+
 COPY backend/ /app/
 # demo-apps lives outside backend/ in the repo, so mount or copy it for eval runs.
 COPY demo-apps/ /app/demo-apps/
