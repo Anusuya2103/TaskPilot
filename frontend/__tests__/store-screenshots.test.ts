@@ -24,13 +24,24 @@ const shot = (id: number, src: string) =>
     payload: { src, url: "http://mockshop:9000/cart", label: `${src}.png` },
   });
 
+/** `pushEvent` takes a LogLine shape (camelCase `stepId`), not the API's `RunEvent`. */
+function toLiveEvent(event: RunEvent) {
+  return {
+    id: event.id,
+    type: event.type,
+    message: event.message,
+    stepId: event.step_id,
+    payload: event.payload,
+  };
+}
+
 describe("run store screenshots", () => {
   beforeEach(() => {
     useRunStore.getState().attach("run-1");
   });
 
   it("collects screenshots from the live event stream", () => {
-    useRunStore.getState().pushEvent(shot(1, "/media/screenshots/a.png"));
+    useRunStore.getState().pushEvent(toLiveEvent(shot(1, "/media/screenshots/a.png")));
 
     expect(useRunStore.getState().screenshots).toHaveLength(1);
     expect(useRunStore.getState().screenshots[0].src).toBe("/media/screenshots/a.png");
