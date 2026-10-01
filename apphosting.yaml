@@ -1,0 +1,47 @@
+# Firebase App Hosting config for the TaskPilot web app.
+#
+# App Hosting accepts only ONE Next.js app per backend, so this covers the web
+# tier only. The API, Postgres and MockShop are deployed separately — see
+# deploy/cloud-run-api.sh and deploy/gcp-full.md for why.
+#
+# Prerequisites (all need your Google account):
+#   npm i -g firebase-tools
+#   firebase login
+#   gcloud auth login && gcloud auth application-default login
+#   # Blaze plan required: App Hosting is not available on Spark.
+#   firebase apphosting:backends:create taskpilot --project YOUR_PROJECT
+#
+# Then push the repo to GitHub and point the backend at it (App Hosting builds
+# from GitHub; there is no `firebase deploy` for App Hosting).
+
+runConfig:
+  minInstances: 0
+  maxInstances: 1
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+# The browser talks directly to the API, so the published API origin must be
+# present before the build -- NEXT_PUBLIC_* values are inlined at build time.
+env:
+  - variable: NEXT_PUBLIC_API_BASE_URL
+    availability:
+      - BUILD
+      - RUNTIME
+    value: PLACEHOLDER_API_URL
+
+  - variable: NEXT_PUBLIC_SSE_BASE_URL
+    availability:
+      - BUILD
+      - RUNTIME
+    value: PLACEHOLDER_API_URL
+
+# App Hosting builds from the repo root, so point it at the Next.js app.
+# (This is the file's only required change for a monorepo layout.)
+# rootDirectory: frontend
+
+# NOTE ON SCALE-TO-ZERO
+# minInstances: 0 here is safe because the web tier is stateless. The API is
+# the stateful part, and it is pinned to min-instances=1 in cloud-run-api.sh.
+# Do not be tempted to scale the API to zero: a paused approval is an
+# in-process asyncio task, so a cold start marks the run interrupted.

@@ -53,3 +53,8 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# submission artifacts: the video is 4MB of regenerable output
+submission/*.mp4
+submission/video-raw/
+submission/cards/
