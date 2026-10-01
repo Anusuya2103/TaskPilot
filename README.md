@@ -286,6 +286,8 @@ backend/
 frontend/            Next.js 14 App Router + Tailwind + Framer Motion
 demo-apps/mockshop/  the deterministic demo/eval target
 docs/                architecture · demo script · slide outline
+deploy/              cloud-run-api.sh · gcp-full.md
+submission/          make_pptx.py · record_demo.py · TaskPilot.pptx
 ```
 
 ---
@@ -301,9 +303,35 @@ docker build -f backend/Dockerfile -t taskpilot-api .
 docker run -p 8000:8000 -e TASKPILOT_DATABASE_URL=… taskpilot-api
 ```
 
+**Google Cloud** — [`deploy/gcp-full.md`](deploy/gcp-full.md) has the full
+walkthrough (App Hosting for the web app, Cloud Run for the API and MockShop,
+Cloud SQL for Postgres). [`deploy/cloud-run-api.sh`](deploy/cloud-run-api.sh)
+provisions and deploys the API in one command.
+
+> The API must run with **`--min-instances=1`**. A run awaiting approval is an
+> in-process `asyncio` task, so a scale-to-zero cold start marks the run
+> `interrupted` and removes the approval gate — the thing this project exists
+> to demonstrate.
+
 Health: `GET /health` (liveness) and `GET /ready` (readiness — reports DB, tools,
 MCP and the *effective* LLM provider, so a demo on the fallback brain is never
 mistaken for a real model).
+
+---
+
+## Submission artifacts
+
+| Artifact | Path | Notes |
+|---|---|---|
+| Slide deck (10 slides) | [`submission/TaskPilot.pptx`](submission/TaskPilot.pptx) | Regenerate: `python submission/make_pptx.py` |
+| Demo video (2:59) | `submission/demo.mp4` | Regenerate: `python submission/record_demo.py` |
+| Slide source | [`docs/slides.md`](docs/slides.md) | Outline the deck is generated from |
+| Demo script | [`docs/demo-script.md`](docs/demo-script.md) | Timed shot list |
+| Architecture notes | [`docs/architecture.md`](docs/architecture.md) | |
+
+Both artifacts are built by scripts rather than hand-assembled, so they stay
+consistent with the code. The video is **not** committed (4.9 MB of binary);
+rebuild it with the command above against a running `docker compose up` stack.
 
 **Frontend** — Vercel: root `frontend/`, build args `NEXT_PUBLIC_API_BASE_URL` and
 `NEXT_PUBLIC_SSE_BASE_URL` pointing at the API. Set the API's
